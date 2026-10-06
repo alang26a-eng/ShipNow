@@ -1,13 +1,16 @@
-# ShipNow — Pre-entrega Módulo 1
+# ShipNow — Pre-entrega Módulo 2
 
-API de Usuarios y Productos creada desde cero con Node.js, Express y Mongoose.
+API de prueba con Node.js, Express y Mongoose. Integra un módulo de mocking a la arquitectura del módulo 1 para generar **usuarios, repartidores, pedidos y entregas** sin cargar datos reales a mano.
 
-## Requisitos y ejecución
+- Los `GET /api/mocks/*` generan datos en memoria y **no escriben en MongoDB**.
+- `POST /api/mocks/seed` agrega un lote acotado de documentos a MongoDB.
+- Se conserva la API de Usuarios y Productos del módulo 1.
 
-- Node.js 22 o superior y npm.
-- MongoDB local o una URI de MongoDB Atlas para usar la API con persistencia.
+## 1. Instalar y ejecutar
 
-Desde la carpeta ShipNow:
+Requisitos: Node.js 22 o superior, npm y MongoDB local iniciado o una URI de MongoDB Atlas.
+
+En PowerShell, desde la carpeta del proyecto:
 
 ```powershell
 npm ci
@@ -15,121 +18,231 @@ Copy-Item .env.example .env
 npm run dev
 ```
 
-En macOS/Linux, usar `cp .env.example .env`. Editar el archivo local `.env` si la conexión es distinta.
-El ejemplo usa MongoDB local, no contiene credenciales. MongoDB debe estar iniciado.
-Para ejecutar sin modo de desarrollo: `npm start`.
+En Linux/macOS, reemplazar `Copy-Item` por `cp .env.example .env`. Para iniciar sin modo de desarrollo: `npm start`.
 
-Variables obligatorias:
+Editar `.env` si corresponde:
 
-| Variable | Validación |
-| --- | --- |
-| PORT | Entero de 1 a 65535 |
-| MONGODB_URI | Prefijo mongodb:// o mongodb+srv://; la conexión comprueba la URI y disponibilidad |
-| NODE_ENV | development, test o production |
-
-`src/config/env.config.js` centraliza dotenv y exporta `loadConfig()`, que devuelve el objeto validado e inmutable.
-No hay lecturas de `process.env` en otros archivos.
-Si falta una variable, el proceso termina con código 1 y un mensaje que identifica la variable, antes de conectar a MongoDB o abrir HTTP.
-El servidor solo escucha después de conectar y crear los índices.
-
-## Arquitectura
-
-```text
-src/
-  config/          env.config.js, database.js
-  constants/       index.js
-  controllers/     product.controller.js, user.controller.js
-  services/        product.service.js, user.service.js
-  repositories/    base.repository.js, product.repository.js, user.repository.js
-  models/          product.model.js, user.model.js
-  routes/          product.routes.js, user.routes.js
-  middlewares/     error-handler.js
-  utils/           app-error.js, validation.js
-  app.js
-  server.js
-test/
-scripts/check.js
+```dotenv
+PORT=3000
+MONGODB_URI=mongodb://127.0.0.1:27017/shipnow
+NODE_ENV=development
+MOCKS_ENABLED=true
+MOCK_SEED_ENABLED=true
 ```
 
-Flujo: Route → Controller → Service → Repository → Mongoose Model.
+Si ya tenés el `.env` del módulo 1, agregar las dos variables `MOCKS_*` para habilitar la carga. Usar una base destinada a pruebas. El archivo real `.env` y `node_modules` están excluidos por `.gitignore`; `.env.example` y `package-lock.json` sí se versionan.
 
-- **Controller:** recibe parámetros HTTP, llama al Service y determina el código y cuerpo de respuesta.
-- **Service:** aplica reglas del dominio: precio y stock no negativos, stock entero, estado derivado del stock, email normalizado, roles válidos y recurso inexistente. No conoce Express ni Mongoose.
-- **Repository:** encapsula consultas, proyecciones explícitas, paginación, orden estable, baja lógica y traducción de errores de persistencia. No calcula estados ni decide permisos. La implementación compartida evita duplicación; cada entidad define su modelo y campos públicos.
-- **Model:** declara el esquema de almacenamiento y sus restricciones. La conexión está aislada en config/database.js.
-- **server.js:** ensambla las dependencias. **app.js:** construye Express sin conectarse a MongoDB, para poder probarlo.
+La configuración se valida antes de abrir HTTP. `PORT`, `MONGODB_URI` y `NODE_ENV` son obligatorios. Los flags aceptan únicamente `true` o `false`. Sin flags, los GET están habilitados en desarrollo/test y el seed está deshabilitado. En `NODE_ENV=production`, el router de mocks queda deshabilitado incluso si los flags son `true`.
 
-Service vs Repository: decidir que stock cero implica OUT_OF_STOCK es negocio y pertenece al Service.
-Buscar únicamente documentos no eliminados y aplicar una proyección es acceso a datos y pertenece al Repository.
+El servidor espera la conexión y los índices de MongoDB antes de escuchar. Los GET no necesitan datos previamente guardados, aunque el servidor completo sí requiere una conexión al arrancar. Las pruebas unitarias y HTTP funcionan sin MongoDB.
 
-Roles y estados usan objetos Object.freeze en src/constants/index.js.
-El cliente no puede escribir status ni deletedAt. Una actualización de stock persiste stock y status juntos.
-DELETE realiza una baja lógica: el registro deja de aparecer en consultas públicas.
-El email tiene índice único y sigue reservado después de la baja, evitando reutilización accidental.
+## 2. Endpoints de mocking
 
-## Endpoints
+Todos los ejemplos usan `http://localhost:3000`.
 
-| Método | Ruta | Resultado |
+| Método | Ruta | Datos devueltos o insertados |
 | --- | --- | --- |
-| GET | /health | 200, estado del proceso HTTP |
-| GET | /api/products | 200, lista |
-| GET | /api/products/:id | 200 o 404 |
-| POST | /api/products | 201 |
-| PATCH | /api/products/:id | 200 |
-| DELETE | /api/products/:id | 204 sin cuerpo |
-| GET | /api/users | 200, lista |
-| GET | /api/users/:id | 200 o 404 |
-| POST | /api/users | 201 |
-| PATCH | /api/users/:id | 200 |
-| DELETE | /api/users/:id | 204 sin cuerpo |
+| GET | `/api/mocks/users?qty=2` | Array de usuarios con roles válidos |
+| GET | `/api/mocks/drivers?qty=2` | Array de usuarios con rol `DRIVER` |
+| GET | `/api/mocks/orders?qty=5` | Objeto con 5 clientes y 5 pedidos vinculados |
+| GET | `/api/mocks/deliveries?qty=5` | Objeto con 5 clientes, 5 repartidores, 5 pedidos y 5 entregas |
+| GET | `/api/mocks/scenario?qty=5` | El mismo escenario completo, útil para probar relaciones |
+| POST | `/api/mocks/seed?qty=10` | Inserta únicamente 10 usuarios |
+| POST | `/api/mocks/seed?qty=5&resource=all` | Inserta todas las entidades relacionadas |
 
-Listas: `?page=1&limit=20` (máximo 100). Products permite `?status=AVAILABLE` o `?status=OUT_OF_STOCK`.
-Respuestas de datos: `{"data": ...}`. Errores: `{"error":"mensaje"}`.
-400: entrada inválida; 404: recurso/ruta inexistente; 409: email duplicado; 413: cuerpo demasiado grande; 500: error inesperado.
+`qty` es un entero positivo; por defecto vale **10**. Máximo de previews: **1000**. Máximo de seed: **100** por entidad principal. Cantidades inválidas, parámetros repetidos y parámetros desconocidos devuelven `400` sin escribir datos.
 
-Ejemplos en PowerShell:
+### Usuarios y repartidores sin guardar
 
 ```powershell
-Invoke-RestMethod http://localhost:3000/health
-$product = Invoke-RestMethod http://localhost:3000/api/products -Method Post -ContentType 'application/json' -Body '{"name":"Caja","price":1500,"stock":10}'
-Invoke-RestMethod "http://localhost:3000/api/products/$($product.data._id)" -Method Patch -ContentType 'application/json' -Body '{"stock":0}'
-Invoke-RestMethod http://localhost:3000/api/users -Method Post -ContentType 'application/json' -Body '{"name":"Ana","email":"ana@example.com"}'
+Invoke-RestMethod 'http://localhost:3000/api/mocks/users?qty=2'
+Invoke-RestMethod 'http://localhost:3000/api/mocks/drivers?qty=2'
 ```
 
-Products requiere name, price y stock. Users requiere name y email; role es opcional y toma USER por defecto.
-PATCH admite los mismos campos parcialmente. No acepta campos desconocidos ni cuerpos vacíos.
-Esta entrega no implementa autenticación ni autorización: role es un dato del dominio y puede editarse mediante esta API académica. Agregar control de acceso antes de exponerla públicamente.
-No se almacenan contraseñas. /health no comprueba la disponibilidad posterior de MongoDB.
+Una respuesta de `/users` tiene esta forma; los IDs, nombres y emails varían:
 
-## Verificación sin MongoDB
+```json
+[
+  { "_id": "507f1f77bcf86cd799439011", "name": "Ana Pérez", "email": "mock.507f1f77bcf86cd799439011@test.com", "role": "USER" },
+  { "_id": "507f1f77bcf86cd799439012", "name": "Luis Gómez", "email": "mock.507f1f77bcf86cd799439012@test.com", "role": "DRIVER" }
+]
+```
+
+Los nombres de campos y roles respetan **el modelo existente**, que usa `name`, `email` y `role`. `USER` representa al cliente y `DRIVER` al repartidor. `/users` alterna `USER`, `DRIVER` y `ADMIN`; `/drivers` fuerza únicamente `DRIVER`.
+
+### Pedidos y entregas sin guardar
+
+```powershell
+$scenario = Invoke-RestMethod 'http://localhost:3000/api/mocks/scenario?qty=5'
+$scenario.orders
+$scenario.deliveries
+```
+
+Los endpoints de pedidos, entregas y escenario devuelven un objeto:
+
+```json
+{
+  "users": [],
+  "drivers": [],
+  "orders": [],
+  "deliveries": []
+}
+```
+
+Las listas se completan con `qty` registros de cada entidad necesaria. `/orders` devuelve `drivers` y `deliveries` vacíos. Las dependencias se incluyen en la misma respuesta para poder resolver todos los IDs en memoria; llamadas GET distintas generan escenarios independientes.
+
+## 3. Cargar registros en MongoDB
+
+### Carga básica, como en la consigna
+
+```powershell
+Invoke-RestMethod 'http://localhost:3000/api/mocks/seed?qty=10' -Method Post
+```
+
+Ejemplo de respuesta (`201 Created`):
+
+```json
+{
+  "insertados": 10,
+  "coleccion": "usuarios",
+  "colecciones": { "usuarios": 10, "pedidos": 0, "entregas": 0 },
+  "repartidores": 3,
+  "batchId": "identificador-unico-del-lote",
+  "persistencia": "compensated"
+}
+```
+
+### Carga del escenario completo
+
+```powershell
+Invoke-RestMethod 'http://localhost:3000/api/mocks/seed?qty=5&resource=all' -Method Post
+```
+
+Ejemplo de respuesta:
+
+```json
+{
+  "insertados": 20,
+  "colecciones": { "usuarios": 10, "pedidos": 5, "entregas": 5 },
+  "repartidores": 5,
+  "batchId": "identificador-unico-del-lote",
+  "persistencia": "compensated"
+}
+```
+
+Los repartidores son usuarios con otro rol y se guardan en la **misma colección**. `repartidores` describe un subconjunto de `usuarios`; no se suma nuevamente al total `insertados`.
+
+| `resource` | Documentos agregados para `qty=n` |
+| --- | --- |
+| `users` (por defecto) | n usuarios de roles variados |
+| `drivers` | n usuarios con rol DRIVER |
+| `orders` | n clientes + n pedidos: 2n documentos |
+| `deliveries` | n clientes + n repartidores + n pedidos + n entregas: 4n documentos |
+| `all` | Escenario completo: 4n documentos |
+
+`seed` usa parámetros de query; admite body vacío o `{}` y rechaza datos arbitrarios. **Cada llamada agrega un nuevo lote** con IDs, emails y `batchId` propios. No reemplaza ni vacía colecciones. `batchId` se almacena como `mockBatchId` en cada documento insertado y permite reconocer los registros del lote.
+
+### Verificar la carga
+
+Los modelos Mongoose usan las colecciones físicas `users`, `orders` y `deliveries`. Las etiquetas `usuarios`, `pedidos` y `entregas` de la respuesta son el resumen en español.
+
+En `mongosh`, elegir la misma base indicada por `MONGODB_URI`:
+
+```javascript
+use shipnow
+db.users.countDocuments()
+db.orders.countDocuments()
+db.deliveries.countDocuments()
+// Usar el batchId devuelto por POST:
+db.users.find({ mockBatchId: 'PEGAR_BATCH_ID' })
+db.orders.find({ mockBatchId: 'PEGAR_BATCH_ID' })
+db.deliveries.find({ mockBatchId: 'PEGAR_BATCH_ID' })
+```
+
+También se pueden consultar los usuarios cargados mediante `GET /api/users?page=1&limit=100`, que conserva el formato `{ "data": [...] }` del módulo 1.
+
+### Manejo de fallos
+
+Antes de escribir, el Repository valida todos los documentos con los modelos reales. Inserta primero usuarios, luego pedidos y por último entregas.
+
+- En Atlas, replica sets o clústeres con soporte de transacciones: se usa una transacción; se confirma todo el lote o se revierte todo. La respuesta indica `persistencia: "transaction"`.
+- En MongoDB standalone: se permite la carga con limpieza compensatoria. Si falla una inserción, se eliminan únicamente IDs de ese mismo lote, en orden inverso. La respuesta indica `persistencia: "compensated"`.
+
+La limpieza de un standalone no ofrece la atomicidad de una transacción: un corte del proceso o una pérdida de conexión puede impedir completarla. Si una limpieza falla, se devuelve `503` con el identificador del lote para revisar los documentos `mockBatchId` antes de reintentar. Para cargas atómicas entre colecciones, usar un replica set o Atlas.
+
+## 4. Modelos, relaciones y constantes
+
+| Entidad | Campos principales | Relación |
+| --- | --- | --- |
+| User | `name`, `email`, `role` | Cliente o repartidor según rol |
+| Order | `user`, `description`, `pickupAddress`, `deliveryAddress`, `weightKg`, `status`, `priority` | `user` referencia un User cliente |
+| Delivery | `order`, `driver`, `status`, `deliveredAt` | `order` referencia un Order; `driver` referencia un User repartidor o es null |
+
+Los modelos agregan `createdAt` y `updatedAt` al persistir. El email de User es único y cada Order puede tener como máximo una Delivery, mediante un índice único sobre `Delivery.order`.
+
+Todas las opciones del dominio se definen en `src/constants/index.js` con `Object.freeze`:
+
+- `USER_ROLES`: `ADMIN`, `USER`, `DRIVER`. Se conservan los valores del módulo 1 y se agrega el rol de repartidor.
+- `ORDER_STATUSES`: `PENDING`, `ASSIGNED`, `IN_TRANSIT`, `DELIVERED`, `CANCELLED`.
+- `ORDER_PRIORITIES`: `LOW`, `NORMAL`, `HIGH`.
+- `DELIVERY_STATUSES`: `PENDING`, `ASSIGNED`, `IN_TRANSIT`, `DELIVERED`, `CANCELLED`.
+- `DELIVERY_STATUS_BY_ORDER`: correspondencia explícita entre estado del pedido y de su entrega.
+
+Los esquemas y generadores consumen estas constantes. Cada pedido generado pertenece a un cliente `USER`; los repartidores tienen rol `DRIVER`. Una entrega `ASSIGNED`, `IN_TRANSIT` o `DELIVERED` tiene un repartidor válido. Una entrega `PENDING` o `CANCELLED` se genera sin repartidor. Las entregas completadas tienen `deliveredAt`. El generador recorre los estados y elige prioridades permitidas; con `qty=5` aparecen los cinco estados.
+
+Las relaciones de este módulo se construyen dentro del lote generado. Los campos `ref` de Mongoose permiten `populate`, pero no son claves foráneas de MongoDB; los futuros endpoints de pedidos/entregas también deberán validar sus propias relaciones.
+
+## 5. Arquitectura por capas
+
+Flujo: **Router → Controller → Service → Repository → Model**.
+
+| Archivo | Responsabilidad |
+| --- | --- |
+| `src/routes/mock.routes.js` | Declara rutas; no genera ni persiste datos |
+| `src/controllers/mock.controller.js` | Extrae query/body y construye la respuesta HTTP |
+| `src/services/mock.service.js` | Valida cantidades, recursos y habilitación; organiza preview y seed |
+| `src/services/mock-generator.js` | Genera datos y relaciones usando las constantes, sin Mongoose |
+| `src/repositories/mock.repository.js` | Valida esquemas, inserta lotes y gestiona transacciones/limpieza |
+| `src/models/user.model.js` | Esquema existente con rol DRIVER y marca opcional de lote |
+| `src/models/order.model.js` | Esquema de pedidos |
+| `src/models/delivery.model.js` | Esquema de entregas y referencias |
+| `src/constants/index.js` | Roles, estados, prioridades, recursos y límites |
+| `src/server.js` | Ensambla servicios/repositorios y conexión |
+| `src/app.js` | Construye Express e integra `/api/mocks` |
+
+Los Controllers, Services y Routes no importan Mongoose ni modelos. Los GET usan únicamente la generación en memoria; solo seed llama al Repository. El repartidor se modela como User con rol DRIVER para conservar una única identidad y colección de usuarios.
+
+Esta API académica no incorpora autenticación. Los flags controlan la habilitación del módulo y se bloquean en producción; no sustituyen permisos de administrador en una aplicación real.
+
+## 6. Pruebas
+
+Sin MongoDB ni `.env`:
 
 ```powershell
 npm run check
 npm test
 ```
 
-Se verifica sintaxis, límites de importación, centralización de variables, configuración inválida y salida del proceso.
-Las pruebas HTTP usan los Controllers y Services reales con repositorios en memoria.
-Las pruebas de repositorios verifican filtros, proyecciones, opciones de actualización y traducción de errores mediante dobles.
-No requieren .env ni credenciales. No sustituyen una prueba de integración contra MongoDB real.
+Verifican sintaxis, separación por capas, configuración, endpoints del módulo 1, cantidades, roles, referencias de mocks, esquemas reales, ausencia de escrituras en GET, seed habilitado/deshabilitado y manejo de fallos de persistencia.
 
-Decisiones técnicas basadas en documentación oficial:
-[Express 5: errores asíncronos](https://expressjs.com/en/guide/error-handling/) y
-[Mongoose: validación de actualizaciones e índices únicos](https://mongoosejs.com/docs/validation).
-
-## Subir a GitHub
-
-Crear un repositorio vacío llamado ShipNow en GitHub. Desde esta carpeta:
+Integración con procesos MongoDB temporales y aislados:
 
 ```powershell
-git init
-git add .
-git status
-git commit -m "Crear API ShipNow por capas"
-git branch -M main
-git remote add origin https://github.com/TU_USUARIO/ShipNow.git
-git push -u origin main
+npm run test:integration
 ```
 
-Reemplazar TU_USUARIO. .gitignore excluye .env, node_modules y logs; .env.example y package-lock.json sí se versionan.
-No subir credenciales reales. El proyecto se entrega preparado localmente; estos pasos publican el repositorio en tu cuenta.
+`mongodb-memory-server` descarga un binario de MongoDB 7.0.24 si falta y ejecuta escenarios standalone y replica set. Necesita acceso a la descarga y un sistema que permita iniciar `mongod`; no usa ni modifica tu base de ShipNow. Verifica escrituras reales, `populate`, índices únicos, llamadas repetidas, reversión de un lote fallido y conservación de documentos anteriores.
+
+## 7. API conservada del módulo 1
+
+| Método | Ruta |
+| --- | --- |
+| GET | `/health` |
+| GET, POST | `/api/users`, `/api/products` |
+| GET, PATCH, DELETE | `/api/users/:id`, `/api/products/:id` |
+
+Documentación detallada de CRUD y arquitectura previa: [Módulo 1](docs/modulo-1.md).
+
+Errores de mocks: `400` entrada inválida; `403` seed deshabilitado; `404` router apagado o ruta inexistente; `409` conflicto de unicidad; `503` base no disponible o limpieza incompleta; `500` error inesperado. Formato: `{ "error": "mensaje" }`.
+
+Referencias oficiales: [Express: manejo de errores](https://expressjs.com/en/guide/error-handling/), [Mongoose: transacciones](https://mongoosejs.com/docs/transactions.html) y [Mongoose: modelos e insertMany](https://mongoosejs.com/docs/api/model.html).

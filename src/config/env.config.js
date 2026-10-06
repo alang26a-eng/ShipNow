@@ -11,7 +11,15 @@ export function validateEnv(source) {
     throw new Error('Configuración inválida: MONGODB_URI debe ser una URI MongoDB válida.');
   if (!['development', 'test', 'production'].includes(source.NODE_ENV))
     throw new Error('Configuración inválida: NODE_ENV debe ser development, test o production.');
-  return Object.freeze({ port: Number(source.PORT), mongodbUri: source.MONGODB_URI, nodeEnv: source.NODE_ENV });
+  for (const key of ['MOCKS_ENABLED', 'MOCK_SEED_ENABLED']) {
+    if (source[key] !== undefined && !['true', 'false'].includes(source[key]))
+      throw new Error(`Configuración inválida: ${key} debe ser true o false.`);
+  }
+  return Object.freeze({
+    port: Number(source.PORT), mongodbUri: source.MONGODB_URI, nodeEnv: source.NODE_ENV,
+    mocksEnabled: source.NODE_ENV !== 'production' && source.MOCKS_ENABLED !== 'false',
+    mockSeedEnabled: source.NODE_ENV !== 'production' && source.MOCK_SEED_ENABLED === 'true'
+  });
 }
 
 // Se ejecuta antes de abrir cualquier conexión o puerto.

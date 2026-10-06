@@ -5,7 +5,7 @@ function walk(dir) {
   return readdirSync(dir, { withFileTypes: true }).flatMap(entry =>
     entry.isDirectory() ? walk(dir + '/' + entry.name) : [dir + '/' + entry.name]);
 }
-for (const file of [...walk('src'), ...walk('test'), ...walk('scripts')].filter(file => file.endsWith('.js'))) {
+for (const file of [...walk('src'), ...walk('test'), ...walk('integration'), ...walk('scripts')].filter(file => file.endsWith('.js'))) {
   const result = spawnSync(process.execPath, ['--check', file], { encoding: 'utf8' });
   assert.equal(result.status, 0, result.stderr);
   const source = readFileSync(file, 'utf8');

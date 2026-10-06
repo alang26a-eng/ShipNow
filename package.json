@@ -1,8 +1,8 @@
 {
   "name": "shipnow",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
-  "description": "API ShipNow — Pre-entrega Módulo 1",
+  "description": "API ShipNow — Pre-entrega Módulo 2: mocking y carga de datos",
   "type": "module",
   "engines": {
     "node": ">=22"
@@ -11,7 +11,8 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "test": "node --test",
-    "check": "node scripts/check.js"
+    "check": "node scripts/check.js",
+    "test:integration": "node --test integration/mocks.integration.js"
   },
   "dependencies": {
     "dotenv": "^17.2.0",
@@ -19,6 +20,7 @@
     "mongoose": "^9.0.0"
   },
   "devDependencies": {
+    "mongodb-memory-server": "^11.3.0",
     "supertest": "^7.1.0"
   }
 }

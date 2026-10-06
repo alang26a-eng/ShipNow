@@ -5,13 +5,17 @@ import productRepository from './repositories/product.repository.js';
 import userRepository from './repositories/user.repository.js';
 import { createProductService } from './services/product.service.js';
 import { createUserService } from './services/user.service.js';
+import mockRepository from './repositories/mock.repository.js';
+import { createMockService } from './services/mock.service.js';
 
 try {
   const config = loadConfig();
   await connectDatabase(config.mongodbUri);
   const app = createApp({
     productService: createProductService(productRepository),
-    userService: createUserService(userRepository)
+    userService: createUserService(userRepository),
+    mockService: createMockService(mockRepository, { seedEnabled: config.mockSeedEnabled, nodeEnv: config.nodeEnv }),
+    mocksEnabled: config.mocksEnabled
   });
   const server = app.listen(config.port, () => console.log('ShipNow disponible en http://localhost:' + config.port));
   server.on('error', async () => {

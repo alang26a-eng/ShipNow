@@ -23,3 +23,14 @@ test('El proceso real termina antes de conectar si falta una variable', () => {
     assert.ok(!result.stdout.includes('disponible'));
   }
 });
+test('Flags de mocks: defaults conservadores, booleanos válidos y producción bloqueada', () => {
+  assert.equal(validateEnv(valid).mocksEnabled, true);
+  assert.equal(validateEnv(valid).mockSeedEnabled, false);
+  assert.equal(validateEnv({ ...valid, MOCK_SEED_ENABLED: 'true' }).mockSeedEnabled, true);
+  assert.equal(validateEnv({ ...valid, MOCKS_ENABLED: 'false' }).mocksEnabled, false);
+  for (const key of ['MOCKS_ENABLED', 'MOCK_SEED_ENABLED'])
+    assert.throws(() => validateEnv({ ...valid, [key]: 'yes' }), new RegExp(key));
+  const production = validateEnv({ ...valid, NODE_ENV: 'production', MOCKS_ENABLED: 'true', MOCK_SEED_ENABLED: 'true' });
+  assert.equal(production.mocksEnabled, false);
+  assert.equal(production.mockSeedEnabled, false);
+});
