@@ -15,7 +15,7 @@ function memoryRepository() {
       Object.entries(filters).every(([key, value]) => row[key] === value)).slice((page - 1) * limit, page * limit); },
     async findById(id) { return rows.get(id) ?? null; },
     async create(data) {
-      if (data.email && [...rows.values()].some(row => row.email === data.email)) throw new AppError(409, 'Email duplicado.');
+      if (data.email && [...rows.values()].some(row => row.email === data.email)) throw new AppError('DUPLICATE_RESOURCE');
       const row = { _id: (++counter).toString(16).padStart(24, '0'), ...data };
       rows.set(row._id, row); return row;
     },
@@ -76,5 +76,5 @@ test('Errores inesperados no exponen detalles internos', async () => {
   broken.list = async () => { throw new Error('secret database detail'); };
   const app = createApp({ productService: createProductService(broken), userService: createUserService(memoryRepository()) });
   const result = await request(app).get('/api/products').expect(500);
-  assert.equal(result.body.error, 'Error interno del servidor.');
+  assert.equal(result.body.error.message, 'Error interno del servidor.');
 });

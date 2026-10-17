@@ -49,7 +49,7 @@ for (const transactional of [false, true]) {
 
 test('Si falla la limpieza, se informa el lote y se intenta limpiar las otras colecciones', async () => {
   const { repository, collections } = fixture({ cleanupFails: true });
-  await assert.rejects(repository.insertDataset(generateDataset(MOCK_RESOURCES.ALL, 5), 'failed'), error => error.status === 503 && error.message.includes('failed'));
+  await assert.rejects(repository.insertDataset(generateDataset(MOCK_RESOURCES.ALL, 5), 'failed'), error => error.status === 503 && error.code === 'MOCK_CLEANUP_FAILED' && error.details.batchId === 'failed');
   assert.equal(collections[0].size, 1);
   assert.equal(collections[1].size, 0);
 });

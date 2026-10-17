@@ -1,8 +1,8 @@
 {
   "name": "shipnow",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "private": true,
-  "description": "API ShipNow — Pre-entrega Módulo 2: mocking y carga de datos",
+  "description": "API ShipNow — Pre-entrega Módulo 3: manejo centralizado de errores",
   "type": "module",
   "engines": {
     "node": ">=22"

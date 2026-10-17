@@ -1,5 +1,5 @@
 import { PRODUCT_STATUSES } from '../constants/index.js';
-import { AppError } from '../utils/app-error.js';
+import { ValidationError, InvalidStatusError, ProductNotFoundError } from '../errors/domain-errors.js';
 import { assertId, bodyFields, text, pagination } from '../utils/validation.js';
 
 export function createProductService(repository) {
@@ -9,11 +9,11 @@ export function createProductService(repository) {
     if (!partial || 'name' in body) data.name = text(body.name, 'name');
     if (!partial || 'price' in body) {
       if (typeof body.price !== 'number' || !Number.isFinite(body.price) || body.price < 0)
-        throw new AppError(400, 'price debe ser un número no negativo.');
+        throw new ValidationError('price debe ser un número no negativo.');
       data.price = body.price;
     }
     if (!partial || 'stock' in body) {
-      if (!Number.isSafeInteger(body.stock) || body.stock < 0) throw new AppError(400, 'stock debe ser un entero no negativo.');
+      if (!Number.isSafeInteger(body.stock) || body.stock < 0) throw new ValidationError('stock debe ser un entero no negativo.');
       data.stock = body.stock;
       data.status = body.stock > 0 ? PRODUCT_STATUSES.AVAILABLE : PRODUCT_STATUSES.OUT_OF_STOCK;
     }
@@ -21,14 +21,14 @@ export function createProductService(repository) {
   }
   async function requireResult(promise) {
     const result = await promise;
-    if (!result) throw new AppError(404, 'Producto no encontrado.');
+    if (!result) throw new ProductNotFoundError();
     return result;
   }
   return {
     list(query = {}) {
       const filters = {};
       if (query.status !== undefined) {
-        if (!Object.values(PRODUCT_STATUSES).includes(query.status)) throw new AppError(400, 'Estado inválido.');
+        if (!Object.values(PRODUCT_STATUSES).includes(query.status)) throw new InvalidStatusError(Object.values(PRODUCT_STATUSES));
         filters.status = query.status;
       }
       return repository.list(pagination(query), filters);

@@ -1,3 +1,5 @@
+> Documento histórico del módulo 1. El contrato de errores vigente es el del [README, módulo 3](../README.md#8-manejo-centralizado-de-errores-módulo-3).
+
 # ShipNow — Pre-entrega Módulo 1
 
 API de Usuarios y Productos creada desde cero con Node.js, Express y Mongoose.

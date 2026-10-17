@@ -16,10 +16,10 @@ import User from '../src/models/user.model.js';
 import Order from '../src/models/order.model.js';
 import Delivery from '../src/models/delivery.model.js';
 
-function api() {
+function api(options = {}) {
   return request(createApp({
     productService: createProductService(productRepository), userService: createUserService(userRepository),
-    mockService: createMockService(createMockRepository(), { seedEnabled: true, nodeEnv: 'test' })
+    mockService: createMockService(createMockRepository(), { seedEnabled: true, nodeEnv: 'test', ...options })
   }));
 }
 async function counts() {
@@ -72,6 +72,11 @@ for (const transactional of [false, true]) {
       brokenDataset.deliveries[1].order = brokenDataset.deliveries[0].order;
       await assert.rejects(createMockRepository().insertDataset(brokenDataset, 'failed-batch'), error => error.status === 409);
       assert.deepEqual(await counts(), beforeFailure, 'No quedan registros del lote fallido.');
+      const conflict = await api({ generate: () => brokenDataset }).post('/api/mocks/seed?qty=5&resource=all').expect(409);
+      assert.equal(conflict.body.status, 'error');
+      assert.equal(conflict.body.error.code, 'DUPLICATE_RESOURCE');
+      assert.equal(conflict.body.error.details, null);
+      assert.deepEqual(await counts(), beforeFailure, 'La carga fallida por HTTP también revierte el lote.');
       assert.ok(await User.findById(real._id), 'No se borran datos anteriores.');
       assert.equal(await User.countDocuments({ mockBatchId: 'failed-batch' }), 0);
       assert.equal(await Order.countDocuments({ mockBatchId: 'failed-batch' }), 0);

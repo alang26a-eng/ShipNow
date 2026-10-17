@@ -1,14 +1,11 @@
-import { AppError } from '../utils/app-error.js';
+import { normalizePersistenceError } from '../errors/persistence-error.js';
 
 // Centraliza filtros de baja lógica, proyecciones y traducción de errores de persistencia.
 export function createRepository(model, projection) {
   async function execute(operation) {
     try { return await operation(); }
     catch (error) {
-      if (error.code === 11000) throw new AppError(409, 'El valor único ya está registrado.');
-      if (error.name === 'ValidationError' || error.name === 'CastError')
-        throw new AppError(400, 'Los datos no cumplen el esquema de persistencia.');
-      throw error;
+      throw normalizePersistenceError(error);
     }
   }
   return {

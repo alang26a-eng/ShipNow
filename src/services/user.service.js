@@ -1,5 +1,5 @@
 import { USER_ROLES } from '../constants/index.js';
-import { AppError } from '../utils/app-error.js';
+import { ValidationError, InvalidRoleError, UserNotFoundError } from '../errors/domain-errors.js';
 import { assertId, bodyFields, text, pagination } from '../utils/validation.js';
 
 export function createUserService(repository) {
@@ -9,17 +9,17 @@ export function createUserService(repository) {
     if (!partial || 'name' in body) data.name = text(body.name, 'name');
     if (!partial || 'email' in body) {
       data.email = text(body.email, 'email', 254).toLowerCase();
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) throw new AppError(400, 'Email inválido.');
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) throw new ValidationError('Email inválido.', { field: 'email' });
     }
     if (!partial || 'role' in body) {
       data.role = body.role === undefined ? USER_ROLES.USER : body.role;
-      if (!Object.values(USER_ROLES).includes(data.role)) throw new AppError(400, 'Rol inválido.');
+      if (!Object.values(USER_ROLES).includes(data.role)) throw new InvalidRoleError(Object.values(USER_ROLES));
     }
     return data;
   }
   async function requireResult(promise) {
     const result = await promise;
-    if (!result) throw new AppError(404, 'Usuario no encontrado.');
+    if (!result) throw new UserNotFoundError();
     return result;
   }
   return {
