@@ -1,6 +1,10 @@
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'node:url';
 
+export function getLoggingConfig(source = process.env) {
+  return { nodeEnv: source.NODE_ENV ?? 'development', logDir: source.LOG_DIR || 'logs' };
+}
+
 export function validateEnv(source) {
   const required = ['PORT', 'MONGODB_URI', 'NODE_ENV'];
   const missing = required.filter(key => typeof source[key] !== 'string' || !source[key].trim());
@@ -11,14 +15,16 @@ export function validateEnv(source) {
     throw new Error('Configuración inválida: MONGODB_URI debe ser una URI MongoDB válida.');
   if (!['development', 'test', 'production'].includes(source.NODE_ENV))
     throw new Error('Configuración inválida: NODE_ENV debe ser development, test o production.');
-  for (const key of ['MOCKS_ENABLED', 'MOCK_SEED_ENABLED']) {
+  for (const key of ['MOCKS_ENABLED', 'MOCK_SEED_ENABLED', 'LOGGER_TEST_ENABLED']) {
     if (source[key] !== undefined && !['true', 'false'].includes(source[key]))
       throw new Error(`Configuración inválida: ${key} debe ser true o false.`);
   }
   return Object.freeze({
     port: Number(source.PORT), mongodbUri: source.MONGODB_URI, nodeEnv: source.NODE_ENV,
     mocksEnabled: source.NODE_ENV !== 'production' && source.MOCKS_ENABLED !== 'false',
-    mockSeedEnabled: source.NODE_ENV !== 'production' && source.MOCK_SEED_ENABLED === 'true'
+    mockSeedEnabled: source.NODE_ENV !== 'production' && source.MOCK_SEED_ENABLED === 'true',
+    loggerTestEnabled: source.NODE_ENV !== 'production' && source.LOGGER_TEST_ENABLED !== 'false',
+    logging: Object.freeze(getLoggingConfig(source))
   });
 }
 

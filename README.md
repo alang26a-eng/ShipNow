@@ -1,8 +1,56 @@
-# ShipNow — Pre-entrega Módulo 3: manejo profesional de errores
+# ShipNow — Pre-entrega Módulo 4: logging y monitoreo básico
 
 API de prueba con Node.js, Express y Mongoose. Centraliza los errores de Usuarios, Productos y del módulo de mocks con **errores personalizados, un diccionario de códigos y un único middleware HTTP**. Conserva el mocking del módulo 2 para generar **usuarios, repartidores, pedidos y entregas** sin cargar datos reales a mano.
 
-El formato de error y los casos para probar esta entrega están en la [sección 8](#8-manejo-centralizado-de-errores-módulo-3).
+Esta entrega agrega **Winston** como logger centralizado, registros HTTP con identificador de solicitud, clasificación de errores, archivo persistente con rotación y un endpoint interno de prueba. Conserva el formato de error del módulo 3 y las funcionalidades de los módulos anteriores.
+
+## Logging: cómo probar esta entrega
+
+La configuración está en `src/config/logger.js`; las variables se leen únicamente desde `src/config/env.config.js`. Los niveles personalizados, de mayor a menor gravedad, son **fatal → error → warning → info → http → debug**. Todos los registros usan `YYYY-MM-DD HH:mm:ss [nivel] mensaje` y pueden incluir metadatos JSON.
+
+| Entorno | Consola | Archivo de errores | Endpoint de prueba |
+| --- | --- | --- | --- |
+| `development` | Los seis niveles, desde `debug` | `error` y `fatal` | Habilitado salvo `LOGGER_TEST_ENABLED=false` |
+| `production` | `info`, `warning`, `error`, `fatal` | `error` y `fatal` | Siempre deshabilitado, incluso con el flag en `true` |
+| `test` | Silenciosa por defecto | Deshabilitado por defecto para aislar pruebas | Habilitable para pruebas HTTP |
+
+En `.env` agregar o conservar:
+
+```dotenv
+NODE_ENV=development
+LOGGER_TEST_ENABLED=true
+LOG_DIR=logs
+```
+
+Con MongoDB disponible, ejecutar `npm ci` y `npm start`. Probar desde otra terminal PowerShell:
+
+```powershell
+Invoke-RestMethod 'http://localhost:3000/api/logger-test'
+Get-Content ./logs/error.log -Tail 20
+```
+
+También puede usarse `curl http://localhost:3000/api/logger-test`. El endpoint emite un evento en cada uno de los seis niveles y devuelve `status`, `message`, `levels` y `requestId`. La línea `fatal` de esta prueba es **simulada**: no cierra el servidor. Los errores importantes quedan en `logs/error.log`; no se guardan allí `warning`, `info`, `http` ni `debug`.
+
+La rotación usa el transporte `File` de Winston con `maxsize=5242880`, `maxFiles=5` y `tailable=true`: aproximadamente 5 MiB por archivo y hasta cinco archivos (`error.log`, `error1.log`, …, `error4.log`). Al superar el tamaño se desplazan los registros anteriores y se elimina el más antiguo. Una entrada individual puede hacer que se exceda el umbral antes del siguiente giro. `error.log` siempre corresponde al archivo activo. Se eligió rotación por tamaño y cantidad de archivos; no se requiere una dependencia extra ni enlaces simbólicos. Referencia: [transporte File de Winston](https://github.com/winstonjs/winston/blob/master/docs/transports.md#file-transport).
+
+Se registran el inicio y cierre HTTP, conexión e índices de MongoDB, generación y persistencia de mocks (incluidos pedidos), creación/actualización de usuarios y productos, rutas inexistentes, validaciones y fallos inesperados. Este proyecto no tiene un CRUD HTTP de pedidos: sus pedidos se crean mediante el módulo de mocks y se registran allí. No se agrega una API de pedidos ajena a la consigna.
+
+El middleware conserva las respuestas JSON del módulo 3: errores esperados `4xx` generan `warning`, fallos inesperados o de infraestructura `5xx` generan `error`, y un lote que no pudo limpiarse genera `fatal`. Un fallo inicial de configuración/conexión o del puerto también genera `fatal`. El cierre espera el vaciado del logger. Cada respuesta HTTP incluye `X-Request-Id` para relacionarla con sus logs; las líneas HTTP incluyen método, ruta sin query, estado y duración.
+
+No se registran cuerpos HTTP, headers, contraseñas ni emails de entidades. Se filtran claves sensibles y se ocultan las URI de MongoDB antes de escribir; las causas y los stacks técnicos se conservan en los errores internos, sin devolverlos al cliente. No enviar credenciales dentro de la ruta de una URL.
+
+`.gitignore` excluye `node_modules/`, `.env`, `.env.*`, `coverage/`, `*.log` y todo el contenido de `/logs/` salvo `.gitkeep`. Se conserva la carpeta vacía documentada; nunca se entregan los registros generados.
+
+Pruebas:
+
+```powershell
+$env:NODE_ENV='test'
+npm test
+npm run check
+npm run test:integration
+```
+
+En Linux/macOS usar `NODE_ENV=test npm test`. Las pruebas de logging verifican el filtrado por entorno, los niveles, formato, ocultamiento de secretos, persistencia exclusiva de `error/fatal`, rotación real, endpoint, middleware y eventos de mocks/MongoDB sin utilizar una base real. La suite de integración usa MongoDB efímero para comprobar las relaciones y persistencia de los módulos anteriores; su primera ejecución puede descargar el binario.
 
 - Los `GET /api/mocks/*` generan datos en memoria y **no escriben en MongoDB**.
 - `POST /api/mocks/seed` agrega un lote acotado de documentos a MongoDB.

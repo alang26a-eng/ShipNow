@@ -1,8 +1,9 @@
 import { USER_ROLES } from '../constants/index.js';
 import { ValidationError, InvalidRoleError, UserNotFoundError } from '../errors/domain-errors.js';
 import { assertId, bodyFields, text, pagination } from '../utils/validation.js';
+import logger from '../config/logger.js';
 
-export function createUserService(repository) {
+export function createUserService(repository, { log = logger } = {}) {
   function prepare(body, partial = false) {
     bodyFields(body, ['name', 'email', 'role'], partial);
     const data = {};
@@ -25,8 +26,15 @@ export function createUserService(repository) {
   return {
     list: query => repository.list(pagination(query)),
     get(id) { assertId(id); return requireResult(repository.findById(id)); },
-    create(body) { return repository.create(prepare(body)); },
-    update(id, body) { assertId(id); return requireResult(repository.update(id, prepare(body, true))); },
+    async create(body) {
+      const user = await repository.create(prepare(body));
+      log.info('Usuario creado correctamente', { id: String(user._id) });
+      return user;
+    },
+    async update(id, body) {
+      assertId(id); const user = await requireResult(repository.update(id, prepare(body, true)));
+      log.info('Usuario actualizado correctamente', { id }); return user;
+    },
     remove(id) { assertId(id); return requireResult(repository.remove(id)); }
   };
 }
