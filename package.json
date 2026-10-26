@@ -1,8 +1,8 @@
 {
   "name": "shipnow",
-  "version": "3.0.0",
+  "version": "4.0.0",
   "private": true,
-  "description": "API ShipNow — Pre-entrega Módulo 3: manejo centralizado de errores",
+  "description": "API ShipNow — Pre-entrega Módulo 4: logging y monitoreo básico con Winston",
   "type": "module",
   "engines": {
     "node": ">=22"
@@ -17,7 +17,8 @@
   "dependencies": {
     "dotenv": "^17.2.0",
     "express": "^5.1.0",
-    "mongoose": "^9.0.0"
+    "mongoose": "^9.0.0",
+    "winston": "^3.19.0"
   },
   "devDependencies": {
     "mongodb-memory-server": "^11.3.0",

@@ -5,6 +5,7 @@ import {
   MockGenerationError, ValidationError
 } from '../errors/domain-errors.js';
 import { generateDataset } from './mock-generator.js';
+import logger from '../config/logger.js';
 
 function quantity(query, maximum) {
   const raw = query.qty ?? String(MOCK_LIMITS.DEFAULT_QTY);
@@ -19,10 +20,14 @@ function checkQuery(query, allowed) {
 }
 
 export function createMockService(repository, {
-  seedEnabled = false, nodeEnv = 'production', generate = generateDataset
+  seedEnabled = false, nodeEnv = 'production', generate = generateDataset, log = logger
 } = {}) {
   function generateSafely(resource, qty) {
-    try { return generate(resource, qty); }
+    try {
+      const dataset = generate(resource, qty);
+      log.debug('Datos mock generados en memoria', { resource, qty });
+      return dataset;
+    }
     catch (error) { throw new MockGenerationError(error); }
   }
   function preview(resource, query) {
@@ -55,6 +60,8 @@ export function createMockService(repository, {
         usuarios: dataset.users.length + dataset.drivers.length,
         pedidos: dataset.orders.length, entregas: dataset.deliveries.length
       };
+      log.info('Lote de datos mock guardado en MongoDB', { batchId, resource, qty, colecciones, mode: result.mode });
+      if (dataset.orders.length) log.info('Pedidos mock creados correctamente', { batchId, count: dataset.orders.length });
       return {
         insertados: Object.values(colecciones).reduce((total, count) => total + count, 0),
         ...(dataset.orders.length === 0 ? { coleccion: 'usuarios' } : {}),
