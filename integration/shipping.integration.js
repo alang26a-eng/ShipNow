@@ -1,0 +1,48 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import request from 'supertest';
+import mongoose from 'mongoose';
+import { MongoMemoryServer } from 'mongodb-memory-server';
+import { createApp } from '../src/app.js';
+import { createShippingService } from '../src/services/shipping.service.js';
+import { createUserService } from '../src/services/user.service.js';
+import users from '../src/repositories/user.repository.js';
+import orders from '../src/repositories/order.repository.js';
+import deliveries from '../src/repositories/delivery.repository.js';
+const log = { log() {}, http() {}, info() {}, debug() {} };
+test('Pedidos y entregas: flujo HTTP con MongoDB real, referencias y errores', { timeout: 180000 }, async () => {
+ const db = await MongoMemoryServer.create({ binary: { version: '7.0.24' } });
+ try {
+  await mongoose.connect(db.getUri('shipping_test'));
+  await Promise.all(Object.values(mongoose.models).map(model => model.init()));
+  const api = request(createApp({ log, userService: createUserService(users, { log }), orderService: createShippingService('order', orders, { users }), deliveryService: createShippingService('delivery', deliveries, { users, orders }) }));
+  const user = (await api.post('/api/users').send({ name: 'Ana', email: 'ana@test.com' }).expect(201)).body.data;
+  const driver = (await api.post('/api/users').send({ name: 'Luis', email: 'luis@test.com', role: 'DRIVER' }).expect(201)).body.data;
+  const input = { user: user._id, description: 'Caja', pickupAddress: 'A 123', deliveryAddress: 'B 456', weightKg: 2, items: [{ description: 'Libro', quantity: 2 }] };
+  const order = (await api.post('/api/orders').send(input).expect(201)).body.data;
+  assert.equal(order.items[0].quantity, 2);
+  await api.get('/api/orders/' + order._id).expect(200);
+  await api.get('/api/orders?status=PENDING').expect(200);
+  const invalid = await api.patch('/api/orders/' + order._id).send({ status: 'WRONG' }).expect(400);
+  assert.equal(invalid.body.error.code, 'INVALID_STATUS');
+  await api.post('/api/orders').send({ ...input, items: [{ description: 'Bad', quantity: 0 }] }).expect(400);
+  await api.post('/api/orders').send({ ...input, user: 'ffffffffffffffffffffffff' }).expect(404);
+  await api.get('/api/orders/bad').expect(400);
+  await api.get('/api/orders/ffffffffffffffffffffffff').expect(404);
+  await api.get('/api/deliveries/ffffffffffffffffffffffff').expect(404);
+  const delivery = (await api.post('/api/deliveries').send({ order: order._id }).expect(201)).body.data;
+  await api.post('/api/deliveries').send({ order: order._id }).expect(409);
+  await api.patch('/api/deliveries/' + delivery._id).send({ status: 'ASSIGNED' }).expect(400);
+  await api.patch('/api/deliveries/' + delivery._id).send({ status: 'ASSIGNED', driver: user._id }).expect(400);
+  await api.patch('/api/deliveries/' + delivery._id).send({ status: 'ASSIGNED', driver: driver._id }).expect(200);
+  const invalidDelivery = await api.patch('/api/deliveries/' + delivery._id).send({ status: 'WRONG' }).expect(400);
+  assert.equal(invalidDelivery.body.error.code, 'INVALID_STATUS');
+  await api.patch('/api/deliveries/' + delivery._id).send({ status: 'DELIVERED' }).expect(400);
+  await api.patch('/api/deliveries/' + delivery._id).send({ status: 'DELIVERED', deliveredAt: '2026-10-31T15:00:00Z' }).expect(200);
+  await api.patch('/api/deliveries/' + delivery._id).send({ driver: driver._id }).expect(200);
+  await api.get('/api/deliveries?status=DELIVERED').expect(200);
+  await api.get('/api/deliveries/' + delivery._id).expect(200);
+  const persisted = await mongoose.model('Order').findById(order._id).lean();
+  assert.equal(persisted.items[0].quantity, 2);
+ } finally { await mongoose.disconnect(); await db.stop(); }
+});

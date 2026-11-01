@@ -1,3 +1,6 @@
+import orderRepository from './repositories/order.repository.js';
+import deliveryRepository from './repositories/delivery.repository.js';
+import { createShippingService } from './services/shipping.service.js';
 import loadConfig, { getLoggingConfig } from './config/env.config.js';
 import { connectDatabase, disconnectDatabase } from './config/database.js';
 import { createApp } from './app.js';
@@ -17,6 +20,8 @@ try {
   logger.debug('Configuración de logging inicializada', { environment: config.nodeEnv });
   await connectDatabase(config.mongodbUri);
   const app = createApp({
+    orderService: createShippingService('order', orderRepository, { users: userRepository }),
+    deliveryService: createShippingService('delivery', deliveryRepository, { users: userRepository, orders: orderRepository }),
     productService: createProductService(productRepository),
     userService: createUserService(userRepository),
     mockService: createMockService(mockRepository, { seedEnabled: config.mockSeedEnabled, nodeEnv: config.nodeEnv }),

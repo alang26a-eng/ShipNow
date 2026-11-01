@@ -7,8 +7,10 @@ const schema = new mongoose.Schema({
   pickupAddress: { type: String, required: true, trim: true },
   deliveryAddress: { type: String, required: true, trim: true },
   weightKg: { type: Number, required: true, min: 0.01 },
+  items: { type: [{ _id: false, description: { type: String, required: true, maxlength: 120 }, quantity: { type: Number, required: true, min: 1, validate: Number.isSafeInteger } }], default: [] },
   status: { type: String, enum: Object.values(ORDER_STATUSES), default: ORDER_STATUSES.PENDING },
   priority: { type: String, enum: Object.values(ORDER_PRIORITIES), default: ORDER_PRIORITIES.NORMAL },
+  deletedAt: { type: Date, default: null, select: false },
   mockBatchId: { type: String, select: false, index: true }
 }, { timestamps: true, versionKey: false });
 
