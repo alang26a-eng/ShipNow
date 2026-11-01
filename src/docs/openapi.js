@@ -55,7 +55,7 @@ export function buildOpenApi({ mocksEnabled = true, loggerEnabled = true, orders
   ]) {
     if (!enabled) continue;
     const root = '/api/' + plural;
-    const extra = entity === 'User' ? ['INVALID_ROLE'] : entity === 'Product' || entity === 'Order' || entity === 'Delivery' ? ['INVALID_STATUS'] : [];
+    const extra = entity === 'User' ? ['INVALID_ROLE'] : entity === 'Order' || entity === 'Delivery' ? ['INVALID_STATUS'] : [];
     const writeErrors = [...baseErrors,...parserErrors,'VALIDATION_ERROR',...extra, ...(entity === 'User' || entity === 'Delivery' ? ['DUPLICATE_RESOURCE'] : []), ...(entity === 'Order' || entity === 'Delivery' ? ['INVALID_ID','USER_NOT_FOUND', ...(entity === 'Delivery' ? ['ORDER_NOT_FOUND'] : [])] : [])];
     const success = (schema, code = 200) => ({ [code]: response('Operación exitosa.', envelope(schema)) });
     const detail = entity === 'Order' ? 'El usuario debe existir. items es opcional (default []). Estados enumerados; no se impone un flujo de transiciones.' : entity === 'Delivery' ? 'El pedido debe existir y tener una sola entrega. driver debe existir y tener rol DRIVER; es obligatorio para ASSIGNED, IN_TRANSIT y DELIVERED. DELIVERED requiere deliveredAt ISO. No sincroniza el estado del pedido; no se impone un flujo de transiciones.' : entity === 'Product' ? 'status se deriva del stock y no se admite en el body.' : 'Email normalizado a minúsculas; role por defecto USER.';

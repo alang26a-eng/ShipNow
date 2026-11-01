@@ -16,16 +16,16 @@ export function createShippingService(kind, repository, { users, orders } = {}) 
       if (existing[field] != null) existing[field] = String(existing[field]);
     }
     const data = { ...existing, ...body };
-    data.status ??= 'PENDING';
+    if (data.status === undefined) data.status = 'PENDING';
     if (!statuses.includes(data.status)) throw new InvalidStatusError(statuses);
     if (isOrder) {
       assertId(data.user);
       if (!await users.findById(data.user)) throw new AppError('USER_NOT_FOUND');
       for (const field of ['description','pickupAddress','deliveryAddress']) data[field] = text(data[field], field, field === 'description' ? 300 : 120);
       if (typeof data.weightKg !== 'number' || !Number.isFinite(data.weightKg) || data.weightKg < 0.01) throw new ValidationError('weightKg debe ser mayor o igual a 0.01.');
-      data.priority ??= 'NORMAL';
+      if (data.priority === undefined) data.priority = 'NORMAL';
       if (!Object.values(ORDER_PRIORITIES).includes(data.priority)) throw new ValidationError('Prioridad inválida.');
-      data.items ??= [];
+      if (data.items === undefined) data.items = [];
       if (!Array.isArray(data.items)) throw new ValidationError('items debe ser un array.');
       data.items = data.items.map(item => {
         bodyFields(item, ['description','quantity']);

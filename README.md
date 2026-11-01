@@ -2,7 +2,7 @@
 
 API de prueba con Node.js, Express y Mongoose. Centraliza los errores de Usuarios, Productos y del módulo de mocks con **errores personalizados, un diccionario de códigos y un único middleware HTTP**. Conserva el mocking del módulo 2 para generar **usuarios, repartidores, pedidos y entregas** sin cargar datos reales a mano.
 
-Esta entrega agrega **Winston** como logger centralizado, registros HTTP con identificador de solicitud, clasificación de errores, archivo persistente con rotación y un endpoint interno de prueba. Conserva el formato de error del módulo 3 y las funcionalidades de los módulos anteriores.
+Esta entrega incorpora **Swagger UI y OpenAPI** para consultar y probar la API, con documentación agrupada por módulos, schemas reutilizables y errores reales. Conserva Winston y el manejo centralizado de errores de los módulos anteriores.
 
 ## Documentación interactiva (Módulo 5)
 
