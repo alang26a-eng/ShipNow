@@ -4,6 +4,8 @@ export const ERROR_DICTIONARY = Object.freeze(Object.fromEntries(Object.entries(
   INVALID_ID: { status: 400, message: 'ID inválido.' },
   INVALID_STATUS: { status: 400, message: 'Estado inválido.' },
   INVALID_ROLE: { status: 400, message: 'Rol inválido.' },
+  ORDER_NOT_FOUND: { status: 404, message: 'Pedido no encontrado.' },
+  DELIVERY_NOT_FOUND: { status: 404, message: 'Entrega no encontrada.' },
   USER_NOT_FOUND: { status: 404, message: 'Usuario no encontrado.' },
   PRODUCT_NOT_FOUND: { status: 404, message: 'Producto no encontrado.' },
   ROUTE_NOT_FOUND: { status: 404, message: 'Ruta no encontrada.' },

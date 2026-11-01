@@ -1,8 +1,58 @@
-# ShipNow — Pre-entrega Módulo 4: logging y monitoreo básico
+# ShipNow — Pre-entrega Módulo 5: Swagger y OpenAPI
 
 API de prueba con Node.js, Express y Mongoose. Centraliza los errores de Usuarios, Productos y del módulo de mocks con **errores personalizados, un diccionario de códigos y un único middleware HTTP**. Conserva el mocking del módulo 2 para generar **usuarios, repartidores, pedidos y entregas** sin cargar datos reales a mano.
 
 Esta entrega agrega **Winston** como logger centralizado, registros HTTP con identificador de solicitud, clasificación de errores, archivo persistente con rotación y un endpoint interno de prueba. Conserva el formato de error del módulo 3 y las funcionalidades de los módulos anteriores.
+
+## Documentación interactiva (Módulo 5)
+
+Requiere Node.js >=22 y MongoDB disponible. Desde la raíz del repositorio:
+
+```powershell
+npm ci
+Copy-Item .env.example .env
+npm start
+```
+
+En Linux/macOS: `cp .env.example .env`. Ajustar MONGODB_URI en .env si corresponde. El servidor espera conectar MongoDB y crear índices antes de escuchar.
+
+Abrir **[Swagger UI](http://localhost:3000/api/docs/)**. La especificación JSON está en **[OpenAPI](http://localhost:3000/api/docs.json)**. Si cambiás PORT, usar ese puerto; el servidor seleccionado por defecto en Swagger es el origen actual.
+
+La configuración está separada en `src/config/swagger.js`; el contrato está en `src/docs/openapi.js`. Usa OpenAPI 3.0.3, schemas reutilizables y ejemplos de errores tomados del diccionario real. Referencia: [respuestas OpenAPI](https://swagger.io/docs/specification/v3_0/describing-responses/).
+
+| Tag | Operaciones documentadas |
+| --- | --- |
+| Users | GET/POST /api/users; GET/PATCH/DELETE /api/users/{id} |
+| Orders | GET/POST /api/orders; GET/PATCH /api/orders/{id} |
+| Deliveries | GET/POST /api/deliveries; GET/PATCH /api/deliveries/{id} |
+| Mocks | GET /api/mocks/users, drivers, orders, deliveries, scenario; POST /api/mocks/seed |
+| Logger | GET /api/logger-test |
+| Products | GET/POST /api/products; GET/PATCH/DELETE /api/products/{id} |
+| Health | GET /health |
+
+En Swagger, desplegar una operación, pulsar **Try it out**, completar parámetros/body y ejecutar. No hay autenticación implementada: no se necesita token. Los módulos deshabilitados se omiten del contrato activo; sus rutas devuelven 404 ROUTE_NOT_FOUND. Mocks y logger están deshabilitados en production. Para probarlos usar NODE_ENV=development, MOCKS_ENABLED=true, MOCK_SEED_ENABLED=true y LOGGER_TEST_ENABLED=true (como .env.example).
+
+### Secuencia de prueba
+
+1. POST /api/users con {"name":"Ana","email":"ana@example.com"}. Copiar data._id.
+2. POST /api/orders con el ID anterior como user:
+
+```json
+{"user":"507f1f77bcf86cd799439011","description":"Caja","pickupAddress":"Origen 123","deliveryAddress":"Destino 456","weightKg":2,"items":[{"description":"Libro","quantity":1}]}
+```
+
+3. POST /api/deliveries con {"order":"ID_DEL_PEDIDO"}. Por defecto queda PENDING. Un pedido admite una entrega (409 si se repite).
+4. Crear otro usuario con role DRIVER para asignarlo. PATCH /api/deliveries/{id} con {"driver":"ID_DRIVER","status":"ASSIGNED"}. ASSIGNED, IN_TRANSIT y DELIVERED requieren driver; DELIVERED además requiere deliveredAt en formato ISO, por ejemplo 2026-10-31T15:00:00Z.
+5. PATCH /api/orders/{id} con {"status":"IN_TRANSIT"}. Los estados posibles son PENDING, ASSIGNED, IN_TRANSIT, DELIVERED, CANCELLED. Un estado fuera del enum devuelve 400 INVALID_STATUS. No hay máquina de transiciones ni sincronización automática entre pedido y entrega.
+6. GET /api/mocks/orders?qty=2 genera sin persistir. POST /api/mocks/seed?resource=all&qty=2 inserta datos reales de prueba: no enviar body o enviar {}. **No recibe usuarios/pedidos ni cantidades en el body**. qty va de 1 a 1000 en preview y de 1 a 100 en seed; default 10. Cantidades inválidas devuelven 400 INVALID_MOCK_QUANTITY. Campos en el body devuelven 400 VALIDATION_ERROR. La carga acumula datos; usar una base de desarrollo.
+7. GET /api/logger-test valida los seis niveles de Winston. Es una herramienta técnica de validación, no una funcionalidad de negocio. fatal es simulado.
+
+Schemas: User, Product, Order, Delivery, OrderItem, ErrorResponse, SuccessResponse, Dataset, SeedResult, LoggerResult y bodies de creación/actualización. items es opcional y vale [] por defecto para conservar compatibilidad con mocks anteriores. Cada ítem tiene description y quantity entera positiva; representa contenido del paquete y no exige referencia a productos.
+
+Respuestas de negocio: {data: entidad} o {data: lista}; DELETE de usuarios/productos devuelve 204 sin body. Mocks devuelve arrays/datasets directos y seed un resumen. Errores: {status:"error",error:{code,message,details}}. Swagger documenta 400, 404, 409, 500, 503 y restricciones de parser (413/415) según operación; 403 en seed deshabilitado. No expone trazas ni credenciales.
+
+Validación: `npm run check`, `npm test` y `npm run test:integration`. Las pruebas validan el contrato OpenAPI, acceso a UI/assets, ocultamiento de módulos y el flujo HTTP de pedidos/entregas, además de la suite anterior. Integración requiere descargar/ejecutar MongoDB efímero.
+
 
 ## Logging: cómo probar esta entrega
 
@@ -33,7 +83,7 @@ También puede usarse `curl http://localhost:3000/api/logger-test`. El endpoint 
 
 La rotación usa el transporte `File` de Winston con `maxsize=5242880`, `maxFiles=5` y `tailable=true`: aproximadamente 5 MiB por archivo y hasta cinco archivos (`error.log`, `error1.log`, …, `error4.log`). Al superar el tamaño se desplazan los registros anteriores y se elimina el más antiguo. Una entrada individual puede hacer que se exceda el umbral antes del siguiente giro. `error.log` siempre corresponde al archivo activo. Se eligió rotación por tamaño y cantidad de archivos; no se requiere una dependencia extra ni enlaces simbólicos. Referencia: [transporte File de Winston](https://github.com/winstonjs/winston/blob/master/docs/transports.md#file-transport).
 
-Se registran el inicio y cierre HTTP, conexión e índices de MongoDB, generación y persistencia de mocks (incluidos pedidos), creación/actualización de usuarios y productos, rutas inexistentes, validaciones y fallos inesperados. Este proyecto no tiene un CRUD HTTP de pedidos: sus pedidos se crean mediante el módulo de mocks y se registran allí. No se agrega una API de pedidos ajena a la consigna.
+Se registran el inicio y cierre HTTP, conexión e índices de MongoDB, generación y persistencia de mocks (incluidos pedidos), creación/actualización de usuarios y productos, rutas inexistentes, validaciones y fallos inesperados. El módulo 5 incorpora listado, consulta, creación y actualización HTTP de pedidos y entregas.
 
 El middleware conserva las respuestas JSON del módulo 3: errores esperados `4xx` generan `warning`, fallos inesperados o de infraestructura `5xx` generan `error`, y un lote que no pudo limpiarse genera `fatal`. Un fallo inicial de configuración/conexión o del puerto también genera `fatal`. El cierre espera el vaciado del logger. Cada respuesta HTTP incluye `X-Request-Id` para relacionarla con sus logs; las líneas HTTP incluyen método, ruta sin query, estado y duración.
 
@@ -240,7 +290,7 @@ Todas las opciones del dominio se definen en `src/constants/index.js` con `Objec
 
 Los esquemas y generadores consumen estas constantes. Cada pedido generado pertenece a un cliente `USER`; los repartidores tienen rol `DRIVER`. Una entrega `ASSIGNED`, `IN_TRANSIT` o `DELIVERED` tiene un repartidor válido. Una entrega `PENDING` o `CANCELLED` se genera sin repartidor. Las entregas completadas tienen `deliveredAt`. El generador recorre los estados y elige prioridades permitidas; con `qty=5` aparecen los cinco estados.
 
-Las relaciones de este módulo se construyen dentro del lote generado. Los campos `ref` de Mongoose permiten `populate`, pero no son claves foráneas de MongoDB; los futuros endpoints de pedidos/entregas también deberán validar sus propias relaciones.
+Las relaciones de este módulo se construyen dentro del lote generado. Los campos `ref` de Mongoose permiten `populate`, pero no son claves foráneas de MongoDB; los endpoints HTTP de pedidos/entregas validan la existencia de sus relaciones en los servicios.
 
 ## 5. Arquitectura por capas
 

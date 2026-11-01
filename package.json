@@ -1,8 +1,8 @@
 {
   "name": "shipnow",
-  "version": "4.0.0",
+  "version": "5.0.0",
   "private": true,
-  "description": "API ShipNow — Pre-entrega Módulo 4: logging y monitoreo básico con Winston",
+  "description": "API ShipNow — Módulo 5: documentación Swagger/OpenAPI",
   "type": "module",
   "engines": {
     "node": ">=22"
@@ -12,15 +12,17 @@
     "dev": "node --watch src/server.js",
     "test": "node --test",
     "check": "node scripts/check.js",
-    "test:integration": "node --test integration/mocks.integration.js"
+    "test:integration": "node --test integration/*.integration.js"
   },
   "dependencies": {
     "dotenv": "^17.2.0",
     "express": "^5.1.0",
     "mongoose": "^9.0.0",
+    "swagger-ui-express": "^5.0.1",
     "winston": "^3.19.0"
   },
   "devDependencies": {
+    "@apidevtools/swagger-parser": "^13.1.0",
     "mongodb-memory-server": "^11.3.0",
     "supertest": "^7.1.0"
   }

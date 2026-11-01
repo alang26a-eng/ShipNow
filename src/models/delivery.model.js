@@ -12,6 +12,7 @@ const schema = new mongoose.Schema({
     type: Date, default: null,
     required() { return this.status === DELIVERY_STATUSES.DELIVERED; }
   },
+  deletedAt: { type: Date, default: null, select: false },
   mockBatchId: { type: String, select: false, index: true }
 }, { timestamps: true, versionKey: false });
 
