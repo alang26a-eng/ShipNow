@@ -19,6 +19,10 @@ test('Pedidos y entregas: flujo HTTP con MongoDB real, referencias y errores', {
   const user = (await api.post('/api/users').send({ name: 'Ana', email: 'ana@test.com' }).expect(201)).body.data;
   const driver = (await api.post('/api/users').send({ name: 'Luis', email: 'luis@test.com', role: 'DRIVER' }).expect(201)).body.data;
   const input = { user: user._id, description: 'Caja', pickupAddress: 'A 123', deliveryAddress: 'B 456', weightKg: 2, items: [{ description: 'Libro', quantity: 2 }] };
+  for (const field of ['status','priority','items']) {
+    const result = await api.post('/api/orders').send({ ...input, [field]: null }).expect(400);
+    assert.equal(result.body.error.code, field === 'status' ? 'INVALID_STATUS' : 'VALIDATION_ERROR');
+  }
   const order = (await api.post('/api/orders').send(input).expect(201)).body.data;
   assert.equal(order.items[0].quantity, 2);
   await api.get('/api/orders/' + order._id).expect(200);
@@ -30,6 +34,8 @@ test('Pedidos y entregas: flujo HTTP con MongoDB real, referencias y errores', {
   await api.get('/api/orders/bad').expect(400);
   await api.get('/api/orders/ffffffffffffffffffffffff').expect(404);
   await api.get('/api/deliveries/ffffffffffffffffffffffff').expect(404);
+  const badStatus = await api.post('/api/deliveries').send({ order: order._id, status: null }).expect(400);
+  assert.equal(badStatus.body.error.code, 'INVALID_STATUS');
   const delivery = (await api.post('/api/deliveries').send({ order: order._id }).expect(201)).body.data;
   await api.post('/api/deliveries').send({ order: order._id }).expect(409);
   await api.patch('/api/deliveries/' + delivery._id).send({ status: 'ASSIGNED' }).expect(400);

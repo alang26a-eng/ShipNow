@@ -26,3 +26,12 @@ test('Swagger UI, assets, JSON y contrato ajustado a módulos activos', async ()
   await api.get('/api/logger-test').expect(404);
   await api.get('/api/mocks/users').expect(404);
 });
+
+test('Productos documenta estado inválido solo donde se admite el filtro status', () => {
+  const spec = buildOpenApi();
+  assert.match(spec.paths['/api/products'].get.responses[400].description, /INVALID_STATUS/);
+  for (const operation of [spec.paths['/api/products'].post, spec.paths['/api/products/{id}'].patch]) {
+    assert.doesNotMatch(operation.responses[400].description, /INVALID_STATUS/);
+    assert.match(operation.responses[400].description, /VALIDATION_ERROR/);
+  }
+});
