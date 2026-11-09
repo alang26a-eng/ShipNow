@@ -1,8 +1,33 @@
-# ShipNow — Pre-entrega Módulo 5: Swagger y OpenAPI
+# ShipNow — Pre-entrega Módulo 6 · Testing funcional
 
 API de prueba con Node.js, Express y Mongoose. Centraliza los errores de Usuarios, Productos y del módulo de mocks con **errores personalizados, un diccionario de códigos y un único middleware HTTP**. Conserva el mocking del módulo 2 para generar **usuarios, repartidores, pedidos y entregas** sin cargar datos reales a mano.
 
-Esta entrega incorpora **Swagger UI y OpenAPI** para consultar y probar la API, con documentación agrupada por módulos, schemas reutilizables y errores reales. Conserva Winston y el manejo centralizado de errores de los módulos anteriores.
+Esta entrega agrega pruebas funcionales HTTP con Mocha, Chai y Supertest. La API incluye Swagger UI, OpenAPI y logging con Winston.
+
+## Testing
+
+Desde la raíz del repositorio, con Node.js 22 o superior:
+
+```sh
+npm ci
+npm run check
+npm test
+```
+
+**Mocha** ejecuta los casos y los hooks, **Chai** valida el contrato de las respuestas y **Supertest** envía solicitudes HTTP a la app Express. La suite importa la misma fábrica que usa el servidor y Supertest gestiona el puerto temporal.
+
+| Comando | Cobertura |
+| --- | --- |
+| `npm test` | Ejecuta las tres suites en orden. |
+| `npm run test:unit` | Pruebas previas con `node:test`, incluidos configuración, repositorios, manejo de errores y logging. Funciona sin MongoDB. |
+| `npm run test:functional` | Pruebas HTTP en `tests/` para usuarios, pedidos, cambios de estado, entregas, mocks, productos, logger, health y Swagger. |
+| `npm run test:integration` | Pruebas previas de persistencia y rollback con MongoDB standalone y replica set. |
+
+La suite funcional valida estados HTTP, estructuras y datos de las respuestas. Cubre, entre otros casos, pedidos incompletos, recursos inexistentes, estados fuera del catálogo, cantidades inválidas en mocks y rutas inexistentes. Contrasta el ejemplo de `ORDER_NOT_FOUND` publicado en OpenAPI con la respuesta real.
+
+**Base de testing.** Las suites funcional y de integración inician instancias locales temporales con `mongodb-memory-server`. La primera ejecución puede descargar MongoDB 7.0.24 y requiere acceso a la descarga y permiso para iniciar `mongod`. Cada caso funcional crea los datos que necesita. Un hook borra los documentos entre casos y otro desconecta y detiene la instancia al finalizar.
+
+**Variables.** Los scripts cargan `.env.test`, incluido en el repositorio. Define `NODE_ENV=test`, `MOCKS_ENABLED=true`, `MOCK_SEED_ENABLED=true`, `LOGGER_TEST_ENABLED=true` y `PORT=3000` para satisfacer el validador. El puerto HTTP de pruebas lo elige Supertest. La suite genera `MONGODB_URI` para su instancia temporal y usa la base `shipnow_test`. Podés ejecutar los tests sin crear un `.env` ni configurar credenciales.
 
 ## Documentación interactiva (Módulo 5)
 
@@ -51,7 +76,7 @@ Schemas: User, Product, Order, Delivery, OrderItem, ErrorResponse, SuccessRespon
 
 Respuestas de negocio: {data: entidad} o {data: lista}; DELETE de usuarios/productos devuelve 204 sin body. Mocks devuelve arrays/datasets directos y seed un resumen. Errores: {status:"error",error:{code,message,details}}. Swagger documenta 400, 404, 409, 500, 503 y restricciones de parser (413/415) según operación; 403 en seed deshabilitado. No expone trazas ni credenciales.
 
-Validación: `npm run check`, `npm test` y `npm run test:integration`. Las pruebas validan el contrato OpenAPI, acceso a UI/assets, ocultamiento de módulos y el flujo HTTP de pedidos/entregas, además de la suite anterior. Integración requiere descargar/ejecutar MongoDB efímero.
+La [suite de testing](#testing) verifica el contrato OpenAPI, los recursos de Swagger UI, el ocultamiento de módulos y el flujo HTTP de pedidos y entregas.
 
 
 ## Logging: cómo probar esta entrega
@@ -91,16 +116,7 @@ No se registran cuerpos HTTP, headers, contraseñas ni emails de entidades. Se f
 
 `.gitignore` excluye `node_modules/`, `.env`, `.env.*`, `coverage/`, `*.log` y todo el contenido de `/logs/` salvo `.gitkeep`. Se conserva la carpeta vacía documentada; nunca se entregan los registros generados.
 
-Pruebas:
-
-```powershell
-$env:NODE_ENV='test'
-npm test
-npm run check
-npm run test:integration
-```
-
-En Linux/macOS usar `NODE_ENV=test npm test`. Las pruebas de logging verifican el filtrado por entorno, los niveles, formato, ocultamiento de secretos, persistencia exclusiva de `error/fatal`, rotación real, endpoint, middleware y eventos de mocks/MongoDB sin utilizar una base real. La suite de integración usa MongoDB efímero para comprobar las relaciones y persistencia de los módulos anteriores; su primera ejecución puede descargar el binario.
+Las pruebas de logging verifican el filtrado por entorno, los niveles, el formato, el ocultamiento de secretos, la persistencia de `error/fatal`, la rotación, el endpoint y los eventos de mocks y MongoDB. Se ejecutan con `npm run test:unit` y `npm run test:functional`.
 
 - Los `GET /api/mocks/*` generan datos en memoria y **no escriben en MongoDB**.
 - `POST /api/mocks/seed` agrega un lote acotado de documentos a MongoDB.
@@ -134,7 +150,7 @@ Si ya tenés el `.env` del módulo 1, agregar las dos variables `MOCKS_*` para h
 
 La configuración se valida antes de abrir HTTP. `PORT`, `MONGODB_URI` y `NODE_ENV` son obligatorios. Los flags aceptan únicamente `true` o `false`. Sin flags, los GET están habilitados en desarrollo/test y el seed está deshabilitado. En `NODE_ENV=production`, el router de mocks queda deshabilitado incluso si los flags son `true`.
 
-El servidor espera la conexión y los índices de MongoDB antes de escuchar. Los GET no necesitan datos previamente guardados, aunque el servidor completo sí requiere una conexión al arrancar. Las pruebas unitarias y HTTP funcionan sin MongoDB.
+El servidor espera la conexión y los índices de MongoDB antes de escuchar. Los GET no necesitan datos previamente guardados, aunque el servidor completo sí requiere una conexión al arrancar.
 
 ## 2. Endpoints de mocking
 
@@ -319,24 +335,9 @@ Los Controllers, Services y Routes no importan Mongoose ni modelos. Los GET usan
 
 Esta API académica no incorpora autenticación. Los flags controlan la habilitación del módulo y se bloquean en producción; no sustituyen permisos de administrador en una aplicación real.
 
-## 6. Pruebas
+## 6. Pruebas de persistencia
 
-Sin MongoDB ni `.env`:
-
-```powershell
-npm run check
-npm test
-```
-
-Verifican sintaxis, separación por capas, configuración, endpoints del módulo 1, cantidades, roles, referencias de mocks, esquemas reales, ausencia de escrituras en GET, seed habilitado/deshabilitado y manejo de fallos de persistencia. `test/errors.test.js` comprueba además el contrato HTTP uniforme, que las entradas inválidas no escriban datos, que las fallas de generación/carga estén controladas y que no se filtren causas técnicas.
-
-Integración con procesos MongoDB temporales y aislados:
-
-```powershell
-npm run test:integration
-```
-
-`mongodb-memory-server` descarga un binario de MongoDB 7.0.24 si falta y ejecuta escenarios standalone y replica set. Necesita acceso a la descarga y un sistema que permita iniciar `mongod`; no usa ni modifica tu base de ShipNow. Verifica escrituras reales, `populate`, índices únicos, llamadas repetidas, reversión de un lote fallido y conservación de documentos anteriores.
+`npm run test:integration` verifica escrituras, `populate`, índices únicos, llamadas repetidas, reversión de lotes fallidos y conservación de documentos anteriores. Consultá [Testing](#testing) para ejecutar la suite completa y ver cómo se aísla MongoDB.
 
 ## 7. API conservada del módulo 1
 
@@ -434,13 +435,13 @@ Para comprobar el bloqueo de seed, cambiar `MOCK_SEED_ENABLED=false`, reiniciar 
 
 ```powershell
 npm run check
-npm test
+npm run test:unit
 npm run test:integration
 ```
 
-`npm test` funciona sin MongoDB y reproduce fallos mediante dependencias inyectadas en tests: generador roto (`MOCK_GENERATION_FAILED`), fallo al consultar topología o insertar por red (`DATABASE_UNAVAILABLE`), duplicado (`DUPLICATE_RESOURCE`), esquema inválido (`VALIDATION_ERROR`), inserción inesperada (`MOCK_PERSISTENCE_FAILED`) y limpieza fallida (`MOCK_CLEANUP_FAILED`). Comprueba el estado y la estructura JSON por HTTP, y que la causa técnica quede oculta. No hay endpoints para forzar fallas en la API.
+`npm run test:unit` reproduce fallos mediante dependencias inyectadas en tests: generador roto (`MOCK_GENERATION_FAILED`), fallo al consultar topología o insertar por red (`DATABASE_UNAVAILABLE`), duplicado (`DUPLICATE_RESOURCE`), esquema inválido (`VALIDATION_ERROR`), inserción inesperada (`MOCK_PERSISTENCE_FAILED`) y limpieza fallida (`MOCK_CLEANUP_FAILED`). Comprueba el estado y la estructura JSON por HTTP, y que la causa técnica quede oculta.
 
-`npm run test:integration` usa MongoDB temporal standalone y replica set. Fuerza un conflicto real del índice único de entregas después de insertar usuarios/pedidos, comprueba `409 / DUPLICATE_RESOURCE` por HTTP y verifica que se reviertan los nuevos registros y se conserven los previos. También prueba esquemas inválidos antes de escribir. Requiere descargar el binario descrito en la sección 6.
+`npm run test:integration` usa MongoDB temporal standalone y replica set. Fuerza un conflicto real del índice único de entregas después de insertar usuarios/pedidos, comprueba `409 / DUPLICATE_RESOURCE` por HTTP y verifica que se reviertan los nuevos registros y se conserven los previos. También prueba esquemas inválidos antes de escribir. Los requisitos del binario están en [Testing](#testing).
 
 Para una comprobación manual de disponibilidad, iniciar la API contra un MongoDB **local de pruebas** y luego detener esa instancia: una carga posterior responde `503 / DATABASE_UNAVAILABLE` si no llegó a escribir. Si la conexión se pierde durante una carga standalone y también impide limpiar, responde `503 / MOCK_CLEANUP_FAILED` con `error.details.batchId`; revisar ese lote antes de repetir la operación. Si MongoDB ya está caído al iniciar, el servidor no abre HTTP, como en los módulos anteriores.
 
