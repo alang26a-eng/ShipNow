@@ -1,0 +1,5 @@
+{
+  "require": ["./tests/support/fixtures.js"],
+  "spec": ["tests/*.test.js"],
+  "timeout": 10000
+}

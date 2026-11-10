@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { validateEnv } from '../src/config/env.config.js';
 const valid = { PORT: '3000', MONGODB_URI: 'mongodb://127.0.0.1:27017/shipnow', NODE_ENV: 'test' };
 test('Configuración: variables obligatorias, formato y objeto inmutable', () => {
@@ -14,9 +17,11 @@ test('Configuración: variables obligatorias, formato y objeto inmutable', () =>
   assert.throws(() => validateEnv({ ...valid, NODE_ENV: 'invalid' }), /NODE_ENV/);
   assert.throws(() => validateEnv({ ...valid, MONGODB_URI: 'https://example.com' }), /MONGODB_URI/);
 });
-test('El proceso real termina antes de conectar si falta una variable', () => {
+test('El proceso real termina antes de conectar si falta una variable', t => {
+  const logDir = mkdtempSync(join(tmpdir(), 'shipnow-config-test-'));
+  t.after(() => rmSync(logDir, { recursive: true, force: true }));
   for (const key of Object.keys(valid)) {
-    const env = { ...valid, [key]: '' };
+    const env = { ...valid, LOG_DIR: logDir, [key]: '' };
     const result = spawnSync(process.execPath, ['src/server.js'], { env, encoding: 'utf8', timeout: 10000 });
     assert.equal(result.status, 1, result.stderr);
     assert.match(result.stderr, new RegExp('Configuración inválida:.*' + key));

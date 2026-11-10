@@ -1,15 +1,6 @@
-import orderRepository from './repositories/order.repository.js';
-import deliveryRepository from './repositories/delivery.repository.js';
-import { createShippingService } from './services/shipping.service.js';
 import loadConfig, { getLoggingConfig } from './config/env.config.js';
 import { connectDatabase, disconnectDatabase } from './config/database.js';
-import { createApp } from './app.js';
-import productRepository from './repositories/product.repository.js';
-import userRepository from './repositories/user.repository.js';
-import { createProductService } from './services/product.service.js';
-import { createUserService } from './services/user.service.js';
-import mockRepository from './repositories/mock.repository.js';
-import { createMockService } from './services/mock.service.js';
+import { createConfiguredApp } from './configured-app.js';
 import logger, { configureLogger, closeLogger } from './config/logger.js';
 
 // Un fallo de configuración debe poder verse también al lanzar el proceso en test.
@@ -19,14 +10,7 @@ try {
   configureLogger(config.logging);
   logger.debug('Configuración de logging inicializada', { environment: config.nodeEnv });
   await connectDatabase(config.mongodbUri);
-  const app = createApp({
-    orderService: createShippingService('order', orderRepository, { users: userRepository }),
-    deliveryService: createShippingService('delivery', deliveryRepository, { users: userRepository, orders: orderRepository }),
-    productService: createProductService(productRepository),
-    userService: createUserService(userRepository),
-    mockService: createMockService(mockRepository, { seedEnabled: config.mockSeedEnabled, nodeEnv: config.nodeEnv }),
-    mocksEnabled: config.mocksEnabled, log: logger, nodeEnv: config.nodeEnv, loggerTestEnabled: config.loggerTestEnabled
-  });
+  const app = createConfiguredApp(config);
   const server = app.listen(config.port, () => logger.info('Servidor ShipNow escuchando en el puerto ' + config.port));
   let stopping = false;
   const shutdown = (reason, failure) => {

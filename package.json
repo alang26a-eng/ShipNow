@@ -2,7 +2,7 @@
   "name": "shipnow",
   "version": "5.0.0",
   "private": true,
-  "description": "API ShipNow — Módulo 5: documentación Swagger/OpenAPI",
+  "description": "API ShipNow — Módulo 6: testing funcional",
   "type": "module",
   "engines": {
     "node": ">=22"
@@ -10,9 +10,11 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "test": "node --test",
+    "test": "npm run test:unit && npm run test:functional && npm run test:integration",
+    "test:unit": "node --import ./tests/support/env.js --test test/*.test.js",
+    "test:functional": "mocha --node-option import=./tests/support/env.js",
     "check": "node scripts/check.js",
-    "test:integration": "node --test integration/*.integration.js"
+    "test:integration": "node --import ./tests/support/env.js --test integration/*.integration.js"
   },
   "dependencies": {
     "dotenv": "^17.2.0",
@@ -23,6 +25,8 @@
   },
   "devDependencies": {
     "@apidevtools/swagger-parser": "^13.1.0",
+    "chai": "^6.3.0",
+    "mocha": "^11.8.0",
     "mongodb-memory-server": "^11.3.0",
     "supertest": "^7.1.0"
   }
