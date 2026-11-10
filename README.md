@@ -23,7 +23,7 @@ npm test
 | `npm run test:functional` | Pruebas HTTP en `tests/` para usuarios, pedidos, cambios de estado, entregas, mocks, productos, logger, health y Swagger. |
 | `npm run test:integration` | Pruebas previas de persistencia y rollback con MongoDB standalone y replica set. |
 
-La suite funcional valida estados HTTP, estructuras y datos de las respuestas. Cubre, entre otros casos, pedidos incompletos, recursos inexistentes, estados fuera del catálogo, cantidades inválidas en mocks y rutas inexistentes. Contrasta el ejemplo de `ORDER_NOT_FOUND` publicado en OpenAPI con la respuesta real.
+La suite funcional valida estados HTTP, estructuras y datos de las respuestas. Cubre, entre otros casos, pedidos incompletos, recursos inexistentes, estados fuera del catálogo, cantidades inválidas en mocks y rutas inexistentes. Contrasta los ejemplos de `ORDER_NOT_FOUND` y `UNSUPPORTED_ENCODING` publicados en OpenAPI con las respuestas reales.
 
 **Base de testing.** Las suites funcional y de integración inician instancias locales temporales con `mongodb-memory-server`. La primera ejecución puede descargar MongoDB 7.0.24 y requiere acceso a la descarga y permiso para iniciar `mongod`. Cada caso funcional crea los datos que necesita. Un hook borra los documentos entre casos y otro desconecta y detiene la instancia al finalizar.
 

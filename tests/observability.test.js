@@ -45,7 +45,7 @@ describe('Swagger', () => {
     expect(script.text).to.include('SwaggerUIBundle');
   });
 
-  it('GET /api/docs.json publica OpenAPI válido y el 404 de pedido coincide con la respuesta real', async () => {
+  it('GET /api/docs.json publica OpenAPI válido y ejemplos de errores que coinciden con las respuestas reales', async () => {
     const { body } = await api.get('/api/docs.json').expect(200).expect('Content-Type', /json/);
     expect(body.openapi).to.equal('3.0.3');
     expect(body.info.title).to.equal('ShipNow API');
@@ -58,6 +58,12 @@ describe('Swagger', () => {
     const response = body.paths['/api/orders/{id}'].get.responses['404'].content['application/json'];
     expect(response.schema).to.deep.equal({ $ref: '#/components/schemas/ErrorResponse' });
     expect(response.examples.ORDER_NOT_FOUND.value).to.deep.equal(notFound);
+
+    const unsupported = await expectApiError(api.post('/api/orders')
+      .set('Content-Encoding', 'unsupported').send({}), 415, 'UNSUPPORTED_ENCODING');
+    const encodingError = body.paths['/api/orders'].post.responses['415'].content['application/json'];
+    expect(encodingError.schema).to.deep.equal({ $ref: '#/components/schemas/ErrorResponse' });
+    expect(encodingError.examples.UNSUPPORTED_ENCODING.value).to.deep.equal(unsupported);
   });
 
   it('devuelve 404 para una ruta de documentación inexistente y un método no admitido por OpenAPI JSON', async () => {
