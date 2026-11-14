@@ -10,7 +10,9 @@ test('OpenAPI válido, operaciones únicas, tags y esquemas reutilizables', asyn
   await SwaggerParser.validate(structuredClone(spec));
   const ids = Object.values(spec.paths).flatMap(path => Object.values(path).filter(op => op.operationId).map(op => op.operationId));
   assert.equal(new Set(ids).size, ids.length);
-  assert.equal(ids.length, 26);
+  assert.equal(ids.length, 28);
+  assert.ok(ids.includes('uploadUserDocument'));
+  assert.ok(ids.includes('uploadDeliveryProof'));
   for (const tag of ['Users','Orders','Deliveries','Mocks','Logger']) assert.ok(spec.tags.some(t => t.name === tag));
   for (const schema of ['User','Order','Delivery','OrderItem','ErrorResponse','SuccessResponse']) assert.ok(spec.components.schemas[schema]);
 });

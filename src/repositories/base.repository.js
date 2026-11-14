@@ -20,6 +20,9 @@ export function createRepository(model, projection) {
     update: (id, data) => execute(() => model.findOneAndUpdate(
       { _id: id, deletedAt: null }, { $set: data }, { new: true, runValidators: true }
     ).select(projection).lean()),
+    appendUpload: (id, field, metadata) => execute(() => model.findOneAndUpdate(
+      { _id: id, deletedAt: null }, { $push: { [field]: metadata } }, { returnDocument: 'after', runValidators: true }
+    ).select(projection).lean()),
     remove: id => execute(() => model.findOneAndUpdate(
       { _id: id, deletedAt: null }, { $set: { deletedAt: new Date() } }, { new: true }
     ).select(projection).lean())

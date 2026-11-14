@@ -1,8 +1,26 @@
-# ShipNow — Pre-entrega Módulo 6 · Testing funcional
+# ShipNow — Pre-entrega Módulo 7 · Carga de archivos, documentos y comprobantes
 
 API de prueba con Node.js, Express y Mongoose. Centraliza los errores de Usuarios, Productos y del módulo de mocks con **errores personalizados, un diccionario de códigos y un único middleware HTTP**. Conserva el mocking del módulo 2 para generar **usuarios, repartidores, pedidos y entregas** sin cargar datos reales a mano.
 
-Esta entrega agrega pruebas funcionales HTTP con Mocha, Chai y Supertest. La API incluye Swagger UI, OpenAPI y logging con Winston.
+La API incluye Swagger UI, OpenAPI, logging con Winston y pruebas funcionales HTTP con Mocha, Chai y Supertest.
+
+## Carga de archivos
+
+Ambas rutas reciben `multipart/form-data`, con un único archivo `file` de hasta 5 MiB. Multer acepta PDF, JPEG y PNG. La API comprueba el MIME declarado y la firma inicial del archivo.
+
+| Ruta | Campos obligatorios | Respuesta 201 |
+| --- | --- | --- |
+| `POST /api/users/:id/documents` | `file` y `documentType` (`DNI`, `LICENCIA` u `OTRO`) | Usuario actualizado con `data.documents` |
+| `POST /api/deliveries/:id/proofs` | `file` | Entrega actualizada con `data.proofs` |
+
+Los archivos se escriben con nombres UUID en `uploads/documentos/`, `uploads/licencias/` o `uploads/comprobantes/`. Las carpetas se crean al usarlas y Git ignora todo `uploads/`. MongoDB almacena el nombre original, el nombre generado, la ruta relativa, el MIME, el tamaño en bytes, el tipo de documento y la fecha de carga. Los comprobantes reciben el tipo `COMPROBANTE_ENTREGA`. Los metadatos también se pueden consultar en el GET de la entidad.
+
+Los formularios, respuestas y errores están en Swagger UI (`/api/docs`). Con el servidor iniciado, reemplazá `ID_USUARIO` e `ID_ENTREGA` por IDs existentes y usá un archivo local:
+
+```sh
+curl -F "file=@documento.pdf;type=application/pdf" -F "documentType=DNI" http://localhost:3000/api/users/ID_USUARIO/documents
+curl -F "file=@comprobante.pdf;type=application/pdf" http://localhost:3000/api/deliveries/ID_ENTREGA/proofs
+```
 
 ## Testing
 

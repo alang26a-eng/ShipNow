@@ -1,3 +1,4 @@
+import { createUploadService } from './services/upload.service.js';
 import { createApp } from './app.js';
 import logger from './config/logger.js';
 import deliveryRepository from './repositories/delivery.repository.js';
@@ -12,6 +13,7 @@ import { createUserService } from './services/user.service.js';
 
 export function createConfiguredApp(config, log = logger) {
   return createApp({
+    uploadService: createUploadService({ users: userRepository, deliveries: deliveryRepository, root: config.uploadRoot }),
     orderService: createShippingService('order', orderRepository, { users: userRepository }),
     deliveryService: createShippingService('delivery', deliveryRepository, {
       users: userRepository, orders: orderRepository

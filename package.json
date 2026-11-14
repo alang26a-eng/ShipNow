@@ -2,7 +2,7 @@
   "name": "shipnow",
   "version": "5.0.0",
   "private": true,
-  "description": "API ShipNow — Módulo 6: testing funcional",
+  "description": "ShipNow - Modulo 7: carga de archivos, documentos y comprobantes",
   "type": "module",
   "engines": {
     "node": ">=22"
@@ -20,6 +20,7 @@
     "dotenv": "^17.2.0",
     "express": "^5.1.0",
     "mongoose": "^9.0.0",
+    "multer": "^2.5.0",
     "swagger-ui-express": "^5.0.1",
     "winston": "^3.19.0"
   },

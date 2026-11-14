@@ -21,5 +21,13 @@ export const ERROR_DICTIONARY = Object.freeze(Object.fromEntries(Object.entries(
   PAYLOAD_TOO_LARGE: { status: 413, message: 'Cuerpo de solicitud demasiado grande.' },
   UNSUPPORTED_ENCODING: { status: 415, message: 'Codificación de la solicitud no soportada.' },
   INVALID_REQUEST: { status: 400, message: 'Solicitud HTTP inválida.' },
+  FILE_REQUIRED: { status: 400, message: 'Se requiere un archivo no vacío en el campo file.' },
+  UNEXPECTED_FILE_FIELD: { status: 400, message: 'Envía un solo archivo en el campo file.' },
+  INVALID_FILE_TYPE: { status: 415, message: 'El archivo debe ser PDF, JPEG o PNG.' },
+  FILE_TOO_LARGE: { status: 413, message: 'El archivo supera el límite de 5 MiB.' },
+  INVALID_DOCUMENT_TYPE: { status: 400, message: 'El tipo de documento debe ser DNI, LICENCIA u OTRO.' },
+  INVALID_UPLOAD: { status: 400, message: 'El formulario de carga es inválido.' },
+  UPLOAD_MULTIPART_REQUIRED: { status: 415, message: 'La carga requiere multipart/form-data.' },
+  UPLOAD_SAVE_FAILED: { status: 500, message: 'No se pudo guardar el archivo o asociarlo a la entidad.' },
   INTERNAL_ERROR: { status: 500, message: 'Error interno del servidor.' }
 }).map(([code, definition]) => [code, Object.freeze(definition)])));

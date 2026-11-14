@@ -1,4 +1,5 @@
 import { USER_ROLES, PRODUCT_STATUSES, ORDER_STATUSES, ORDER_PRIORITIES, DELIVERY_STATUSES, MOCK_LIMITS, MOCK_RESOURCES } from '../constants/index.js';
+import { ACCEPTED_MIME_TYPES, MAX_FILE_SIZE, PROOF_TYPE, USER_DOCUMENT_TYPES } from '../config/uploads.js';
 import { ERROR_DICTIONARY } from '../errors/error-dictionary.js';
 export const ref = name => ({ $ref: '#/components/schemas/' + name });
 const str = (extra = {}) => ({ type: 'string', ...extra });
@@ -27,6 +28,15 @@ for (const [entity, input] of Object.entries({ User: userInput, Product: product
   delete schemas[entity + 'Update'].required;
   schemas[entity] = obj({ _id: id, ...input.properties, createdAt: date, updatedAt: date }, ['_id', ...input.required]);
 }
+const metadataProperties = {
+  originalName: str(), filename: str(), path: str(), mimeType: enumeration(ACCEPTED_MIME_TYPES),
+  size: { type: 'integer', minimum: 1, maximum: MAX_FILE_SIZE },
+  documentType: enumeration([...USER_DOCUMENT_TYPES, PROOF_TYPE]), uploadedAt: date
+};
+schemas.UploadMetadata = obj(metadataProperties, Object.keys(metadataProperties));
+schemas.User.properties.documents = array(ref('UploadMetadata'));
+schemas.Delivery.properties.proofs = array(ref('UploadMetadata'));
+
 const json = schema => ({ 'application/json': { schema } });
 const response = (description, schema) => ({ description, ...(schema ? { content: json(schema) } : {}) });
 function errors(codes) {
@@ -46,7 +56,8 @@ const parserErrors = ['INVALID_JSON','PAYLOAD_TOO_LARGE','UNSUPPORTED_ENCODING',
 const baseErrors = ['INTERNAL_ERROR','DATABASE_UNAVAILABLE'];
 const body = schema => ({ required: true, content: json(schema) });
 const envelope = schema => ({ allOf: [ref('SuccessResponse'), obj({ data: schema }, ['data'])] });
-export function buildOpenApi({ mocksEnabled = true, loggerEnabled = true, ordersEnabled = true, deliveriesEnabled = true } = {}) {
+const success = (schema, code = 200) => ({ [code]: response('Operación exitosa.', envelope(schema)) });
+export function buildOpenApi({ mocksEnabled = true, loggerEnabled = true, ordersEnabled = true, deliveriesEnabled = true, uploadsEnabled = true } = {}) {
   const paths = {};
   const tags = ['Users','Orders','Deliveries','Mocks','Logger','Products','Health'].map(name => ({ name, description: name === 'Logger' ? 'Herramienta técnica de validación de logging; no es una funcionalidad de negocio.' : 'Módulo ' + name }));
   for (const [plural, entity, tag, statuses, enabled] of [
@@ -57,7 +68,6 @@ export function buildOpenApi({ mocksEnabled = true, loggerEnabled = true, orders
     const root = '/api/' + plural;
     const extra = entity === 'User' ? ['INVALID_ROLE'] : entity === 'Order' || entity === 'Delivery' ? ['INVALID_STATUS'] : [];
     const writeErrors = [...baseErrors,...parserErrors,'VALIDATION_ERROR',...extra, ...(entity === 'User' || entity === 'Delivery' ? ['DUPLICATE_RESOURCE'] : []), ...(entity === 'Order' || entity === 'Delivery' ? ['INVALID_ID','USER_NOT_FOUND', ...(entity === 'Delivery' ? ['ORDER_NOT_FOUND'] : [])] : [])];
-    const success = (schema, code = 200) => ({ [code]: response('Operación exitosa.', envelope(schema)) });
     const detail = entity === 'Order' ? 'El usuario debe existir. items es opcional (default []). Estados enumerados; no se impone un flujo de transiciones.' : entity === 'Delivery' ? 'El pedido debe existir y tener una sola entrega. driver debe existir y tener rol DRIVER; es obligatorio para ASSIGNED, IN_TRANSIT y DELIVERED. DELIVERED requiere deliveredAt ISO. No sincroniza el estado del pedido; no se impone un flujo de transiciones.' : entity === 'Product' ? 'status se deriva del stock y no se admite en el body.' : 'Email normalizado a minúsculas; role por defecto USER.';
     paths[root] = {
       get: { tags: [tag], summary: 'Listar ' + plural, description: 'Devuelve data como array paginado, sin metadatos de total.', operationId: 'list' + tag, parameters: [...pagination, ...(statuses ? [param('status', enumeration(statuses), 'Filtrar por estado.')] : [])], responses: { ...success(array(ref(entity))), ...errors([...baseErrors,'VALIDATION_ERROR',...(statuses ? ['INVALID_STATUS'] : [])]) } },
@@ -70,6 +80,39 @@ export function buildOpenApi({ mocksEnabled = true, loggerEnabled = true, orders
       patch: { tags: [tag], summary: 'Actualizar ' + entity, description: 'Body parcial no vacío. ' + detail, operationId: 'update' + entity, requestBody: body(ref(entity + 'Update')), responses: { ...success(ref(entity)), ...errors([...writeErrors,'INVALID_ID',missing]) } }
     };
     if (['User','Product'].includes(entity)) paths[root + '/{id}'].delete = { tags: [tag], summary: 'Eliminar ' + entity, description: 'Baja lógica. Respuesta sin body.', operationId: 'delete' + entity, responses: { 204: response('Eliminado, sin contenido.'), ...errors([...baseErrors,'INVALID_ID',missing]) } };
+  }
+  if (uploadsEnabled) {
+    const resources = [
+      ['users', 'documents', 'User', 'Users', 'USER_NOT_FOUND', true],
+      ...(deliveriesEnabled ? [['deliveries', 'proofs', 'Delivery', 'Deliveries', 'DELIVERY_NOT_FOUND', false]] : [])
+    ];
+    for (const [resource, field, entity, tag, missing, userDocument] of resources) {
+      const form = {
+        file: str({ format: 'binary', description: 'PDF, JPEG o PNG de hasta 5 MiB.' }),
+        ...(userDocument ? { documentType: enumeration(USER_DOCUMENT_TYPES) } : {})
+      };
+      const updated = obj({ ...schemas[entity].properties, [field]: array(ref('UploadMetadata')) },
+        [...schemas[entity].required, field]);
+      paths['/api/' + resource + '/{id}/' + field] = {
+        parameters: [param('id', id, 'ID de la entidad.', 'path')],
+        post: {
+          tags: [tag],
+          summary: userDocument ? 'Subir documento de usuario' : 'Asociar comprobante a una entrega',
+          operationId: userDocument ? 'uploadUserDocument' : 'uploadDeliveryProof',
+          requestBody: { required: true, content: { 'multipart/form-data': {
+            schema: { ...obj(form, Object.keys(form)), additionalProperties: false },
+            encoding: { file: { contentType: ACCEPTED_MIME_TYPES.join(', ') } }
+          } } },
+          responses: {
+            ...success(updated, 201),
+            ...errors([...baseErrors, ...parserErrors, missing, 'INVALID_ID', 'FILE_REQUIRED',
+              'UNEXPECTED_FILE_FIELD', 'INVALID_FILE_TYPE', 'FILE_TOO_LARGE', 'INVALID_UPLOAD',
+              'UPLOAD_MULTIPART_REQUIRED', 'UPLOAD_SAVE_FAILED', 'VALIDATION_ERROR',
+              ...(userDocument ? ['INVALID_DOCUMENT_TYPE'] : [])])
+          }
+        }
+      };
+    }
   }
   if (mocksEnabled) {
     for (const resource of ['users','drivers','orders','deliveries','scenario']) {

@@ -1,3 +1,4 @@
+import { uploadMetadataSchema } from './upload-metadata.schema.js';
 import mongoose from 'mongoose';
 import { DELIVERY_STATUSES, DRIVER_REQUIRED_STATUSES } from '../constants/index.js';
 
@@ -12,6 +13,7 @@ const schema = new mongoose.Schema({
     type: Date, default: null,
     required() { return this.status === DELIVERY_STATUSES.DELIVERED; }
   },
+  proofs: { type: [uploadMetadataSchema], default: undefined },
   deletedAt: { type: Date, default: null, select: false },
   mockBatchId: { type: String, select: false, index: true }
 }, { timestamps: true, versionKey: false });
